@@ -1,0 +1,13 @@
+{
+  "name": "cortex-map-monorepo",
+  "private": true,
+  "workspaces": [
+    "packages/cortex-map",
+    "demo"
+  ],
+  "scripts": {
+    "build": "npm run build -w cortex-map && npm run build -w cortex-map-demo",
+    "typecheck": "npm run typecheck -w cortex-map && npm run typecheck -w cortex-map-demo",
+    "dev": "npm run dev -w cortex-map-demo"
+  }
+}

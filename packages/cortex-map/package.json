@@ -1,0 +1,55 @@
+{
+  "name": "cortex-map",
+  "version": "0.1.0",
+  "description": "A cinematic 3D knowledge-graph visualization — the \"war-table\" memory map. Bring your own nodes and edges; clusters, colours, and theme are fully yours.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/NoctemJack/cortex-map.git",
+    "directory": "packages/cortex-map"
+  },
+  "keywords": [
+    "react",
+    "three",
+    "3d",
+    "force-graph",
+    "knowledge-graph",
+    "visualization",
+    "memory-map",
+    "second-brain"
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --sourcemap --external react --external react-dom --external three --external react-force-graph-3d",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "peerDependencies": {
+    "react": ">=18",
+    "react-dom": ">=18"
+  },
+  "dependencies": {
+    "react-force-graph-2d": "^1.29.1",
+    "react-force-graph-3d": "^1.29.1",
+    "three": "^0.184.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.0",
+    "@types/three": "^0.184.0",
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.2"
+  }
+}
