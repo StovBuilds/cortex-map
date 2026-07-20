@@ -3,7 +3,7 @@
 A cinematic, living 3D knowledge-graph for React — the "war-table" memory map.
 
 Full documentation, screenshots, and live demo:
-**https://github.com/NoctemJack/cortex-map**
+**https://github.com/StovBuilds/cortex-map**
 
 ```bash
 npm install cortex-map

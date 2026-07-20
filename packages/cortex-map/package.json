@@ -5,7 +5,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/NoctemJack/cortex-map.git",
+    "url": "https://github.com/StovBuilds/cortex-map.git",
     "directory": "packages/cortex-map"
   },
   "keywords": [

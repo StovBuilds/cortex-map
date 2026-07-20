@@ -157,7 +157,7 @@ We're gauging interest in a **hosted brain backend**: connect your data sources,
 we handle storage, embeddings, and automatic semantic linking — your map stays
 this component, pointed at our API.
 
-**[→ Join the waitlist](https://github.com/NoctemJack/cortex-map/issues/1)** (a 👍 is enough).
+**[→ Join the waitlist](https://github.com/StovBuilds/cortex-map/issues/1)** (a 👍 is enough).
 
 ## Development
 
