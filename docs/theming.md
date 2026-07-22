@@ -1,8 +1,6 @@
 # Theming
 
-Everything visual routes through two props: `clusters` (names, colours, angles,
-personas — see [data-format.md](data-format.md)) and `theme`. Every theme field
-is optional; the defaults reproduce the original war-table look.
+Right, so everything visual here funnels through two props: `clusters` (names, colours, angles, personas, all covered in [data-format.md](data-format.md)) and `theme`. Every field on the theme object is optional. Leave it all blank and you get the original war-table look, defaults and all.
 
 ## The theme object
 
@@ -47,7 +45,7 @@ interface CortexMapTheme {
 
 ### Change the colours
 
-Cluster hues live on the ClusterDefs. The scene accents:
+Cluster hues actually live on the ClusterDefs, not here. What the theme controls is the scene accents:
 
 ```tsx
 theme={{
@@ -57,8 +55,7 @@ theme={{
 }}
 ```
 
-The gold rim, sun-core, and core-node tint are currently fixed accents
-(`#ffe6b0` family) — PRs welcome to lift them into the theme.
+The gold rim, sun-core, and core-node tint are fixed for now (the `#ffe6b0` family). PRs welcome if you fancy lifting them into the theme properly.
 
 ### Clean / minimal (dashboards, docs sites)
 
@@ -71,7 +68,8 @@ theme={{ sea: false, starfield: false, nightLights: false, outerDisk: false, blo
 ```tsx
 theme={{ bloom: [0.8, 0.6, 0.7], fogDensity: 0.0004 }}
 ```
-…and drive `flash`/`ignite` from an interval.
+
+Then drive `flash`/`ignite` off an interval and let it run.
 
 ### Flatter, wider table
 
@@ -87,8 +85,7 @@ theme={{ cameraStart: { x: 0, y: 1400, z: 260 }, cameraLook: { x: 0, y: 0, z: 0 
 
 ## HUD chrome (panels, search, inspector)
 
-The 2D overlay styles itself with an injected stylesheet scoped under
-`.cortex-map`, exposed via CSS custom properties:
+The 2D overlay styles itself, an injected stylesheet scoped under `.cortex-map`, exposed as CSS custom properties:
 
 ```css
 .cortex-map {
@@ -101,24 +98,22 @@ The 2D overlay styles itself with an injected stylesheet scoped under
 }
 ```
 
-Override them on your own wrapper (they inherit):
+Override them on your own wrapper, they'll inherit fine:
 
 ```css
 .my-brain .cortex-map { --cm-hud-font: "IBM Plex Mono", monospace; }
 ```
 
-Or hide the built-ins entirely (`search={false}`, `inspector={false}`) and build
-your own UI off `onNodeSelect` + the ref handle.
+Or just hide the built-ins entirely (`search={false}`, `inspector={false}`) and build your own UI off `onNodeSelect` plus the ref handle.
 
 ## Performance knobs
 
-Roughly in order of cost:
+Roughly, in order of cost:
 
-1. `sea: false` — the ocean is a 128×128 displaced plane with a per-pixel shader
-2. `bloom: null` — full-screen post-processing pass
-3. `starfield: false`, `nightLights: false` — thousands of points each
-4. `pixelRatioCap: 1` — biggest single mobile win
-5. Fewer pillar-worthy nodes (`pillarMinWeight` up, or lower node weights)
+1. `sea: false`, the ocean's a 128×128 displaced plane with a per-pixel shader
+2. `bloom: null`, full-screen post-processing pass
+3. `starfield: false`, `nightLights: false`, thousands of points each
+4. `pixelRatioCap: 1`, the biggest single mobile win, honestly
+5. Fewer pillar-worthy nodes (`pillarMinWeight` up, or just lower node weights)
 
-`lite` (prop or the built-in toggle) drops to a flat 2D canvas entirely;
-`prefers-reduced-motion` forces it.
+`lite` (prop, or the built-in toggle) drops straight to a flat 2D canvas. `prefers-reduced-motion` forces it whether you ask for it or not.

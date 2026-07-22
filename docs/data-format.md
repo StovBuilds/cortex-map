@@ -1,7 +1,6 @@
 # Data format
 
-CortexMap renders exactly what you pass — no fetching, no backend, plain JSON-
-shaped objects. Three props carry the data: `nodes`, `edges`, `clusters`.
+Right, so CortexMap doesn't fetch anything, doesn't talk to a backend, none of that. You give it plain JSON-shaped objects and it renders exactly what you handed over. Nothing clever going on behind the scenes. Three props do all the work: `nodes`, `edges`, `clusters`. That's it, honestly.
 
 ## Nodes
 
@@ -22,33 +21,29 @@ interface CortexMapNode {
 
 ### Roles and layout
 
-The layout is **deterministic**: the same data always produces the same map.
+The layout is **deterministic**, which is just a fancy way of saying: same data in, same map out. Every time. No surprises.
 
 | role | placement |
 | --- | --- |
-| `core` | the centre plinth (one per map) — gold tint, tall pillar, giant ring |
+| `core` | the centre plinth (one per map), gold tint, tall pillar, giant ring |
 | `hub` | its cluster's sector centre |
 | `subhub` | ringed around its `parentId` hub |
 | `leaf` (default) | ringed around its `parentId`; with no parent, a golden-angle spiral in its cluster's sector |
 
-You can ignore roles entirely — every node then falls back to the per-cluster
-spiral, which still reads as tidy labelled constellations.
+You can honestly just ignore roles altogether. Every node falls back to the per-cluster spiral then, and it still looks tidy, like proper little labelled constellations. I quite like that fallback, actually.
 
 ### The age gradient
 
-`lastSeenAt` is ranked into a percentile across all dated nodes (rank, not
-absolute age — so the gradient is always visible even when timestamps bunch up):
+`lastSeenAt` gets ranked into a percentile across all your dated nodes. Rank, not absolute age, so the gradient still shows up even when your timestamps are all bunched together in one week or whatever.
 
-- **colour** — fresh nodes glow their full cluster hue; old ones cool toward slate
-- **elevation** — fresh leaves ride proud of the dome; old ones settle into it
+- **colour**, fresh nodes glow their full cluster hue; old ones cool toward slate
+- **elevation**, fresh leaves ride proud of the dome; old ones settle into it
 
-Undated nodes sit at the midpoint. Structural nodes (core/hub/subhub) never lift.
+Undated nodes just sit at the midpoint, no drama. And structural nodes, your core/hub/subhub lot, never lift at all.
 
 ### Weight
 
-`weight >= theme.pillarMinWeight` (default 0.7) earns a vertical **light pillar**
-whose height scales on a power curve — keep pillar-worthy nodes rare so a few
-tower and the rest stay low. Weight also feeds orb size and halo scale.
+Anything with `weight >= theme.pillarMinWeight` (default 0.7) earns itself a vertical **light pillar**, and the height scales on a power curve. So keep the pillar-worthy nodes rare, yeah? A few towering and the rest staying low reads way better than everything shouting at once. Weight also feeds orb size and halo scale, for what it's worth.
 
 ## Edges
 
@@ -62,18 +57,12 @@ interface CortexMapEdge {
 }
 ```
 
-Two visual tiers, split by strength (thresholds themeable):
+There are two visual tiers here, split by strength (the thresholds are themeable, so don't panic):
 
-- **bright "thinking" tier** — arcs with travelling particles. Explicit edges
-  qualify at `strength >= theme.linkBrightExplicit` (0.62), semantic ones at
-  `theme.linkBrightMin` (0.9).
-- **fibre web** — faint straight lines. Semantic edges below
-  `theme.linkFibreMin` (0.8) aren't drawn at all (but still count for the
-  inspector, tentacles, and ignite propagation).
+- **bright "thinking" tier**, arcs with travelling particles. Explicit edges qualify at `strength >= theme.linkBrightExplicit` (0.62), semantic ones need `theme.linkBrightMin` (0.9).
+- **fibre web**, faint straight lines. Semantic edges below `theme.linkFibreMin` (0.8) don't even get drawn (they still count for the inspector, tentacles, and ignite propagation, though, so they're not gone).
 
-Edges referencing unknown node ids are dropped silently. Node `degree`
-(connection count — orb size, ring gating, search ranking) is computed from the
-edge set for you.
+Edges pointing at unknown node ids just get dropped silently, no error, nothing. And node `degree` (connection count, feeds orb size, ring gating, search ranking) gets computed from the edge set automatically. You don't touch it.
 
 ## Clusters
 
@@ -90,19 +79,13 @@ interface ClusterDef {
 }
 ```
 
-Omit `angleDeg` and clusters distribute evenly in array order. Position encodes
-meaning — put related clusters next to each other and the map's geography
-becomes readable at a glance.
+Skip `angleDeg` and clusters just distribute evenly in array order. Position actually encodes meaning here, so put related clusters next to each other and the whole map's geography reads properly at a glance. Worth the five minutes of thought.
 
-A node whose `cluster` doesn't match any ClusterDef renders in
-`theme.fallbackClusterColor` at angle 0 — fine for stragglers, but give real
-clusters a definition.
+A node whose `cluster` doesn't match any ClusterDef renders in `theme.fallbackClusterColor` at angle 0. Fine for the odd straggler. But give your real clusters proper definitions, don't be lazy about it.
 
 ## Live updates
 
-Changing the `nodes`/`edges` props re-ingests the graph (positions stay
-deterministic, so existing nodes don't move). For moment-to-moment effects use
-the ref handle instead — it never rebuilds geometry:
+Changing the `nodes`/`edges` props re-ingests the whole graph, but positions stay deterministic, so existing nodes don't go leaping about. For moment-to-moment stuff, use the ref handle instead, it never rebuilds the geometry:
 
 ```ts
 map.current?.flash(idOrIds);  // warm pulse + sea ripple (+ storm energy)
@@ -110,3 +93,5 @@ map.current?.ignite(idOrIds); // pulse that propagates outward along edges
 map.current?.focus(id);       // select + fly the camera
 map.current?.clearSelection();
 ```
+
+Anyway. That's the whole shape of it.

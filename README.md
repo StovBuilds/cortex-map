@@ -1,21 +1,16 @@
 # cortex-map
 
-A cinematic, living 3D knowledge-graph for React — the **"war-table" memory map**.
-Bring your own nodes and edges; the clusters, colours, and whole look are yours to theme.
+A cinematic, living 3D knowledge-graph for React, the "war-table" memory map. Bring your own nodes and edges; the clusters, colours, and whole look are yours to theme.
 
-![cortex-map — the war-table scene](docs/media/hero.png)
+![cortex-map, the war-table scene](docs/media/hero.png)
 
-Your data renders as glowing constellations on a holographic table: each cluster
-owns a sector, important nodes tower as light pillars, strong connections arc
-across the map as bright particle trails, and an animated sea rolls underneath —
-rippling and storming where the "mind" is most active. Click an orb and organic
-tentacles reach out to everything it's connected to.
+Your data renders as glowing constellations on a holographic table: each cluster owns a sector, important nodes tower as light pillars, strong connections arc across the map as bright particle trails, and an animated sea rolls underneath. Rippling and storming where the "mind" is most active, basically. Click an orb and organic tentacles reach out to everything it's connected to.
 
-**[▶ Live demo](https://cortex-map.pages.dev)** — a fictional game studio's second brain.
+**[▶ Live demo](https://cortex-map.pages.dev)**, a fictional game studio's second brain.
 
 | Inspector + connection tentacles | ⌘K search |
 | --- | --- |
-| ![inspector](docs/media/inspector.png) | ![search](docs/media/search.png) |
+|![inspector](docs/media/inspector.png) |![search](docs/media/search.png) |
 
 ## Install
 
@@ -23,8 +18,7 @@ tentacles reach out to everything it's connected to.
 npm install cortex-map
 ```
 
-React 18+ is a peer dependency. `three` and `react-force-graph-3d` come along as
-dependencies — no other setup.
+React 18+ is a peer dependency. `three` and `react-force-graph-3d` come along as dependencies, no other setup needed.
 
 ## Quickstart
 
@@ -61,28 +55,23 @@ export function Brain() {
 }
 ```
 
-The component fills its parent — give the parent a real height.
+The component fills its parent, so give the parent a real height. Sounds obvious, but it'll bite you if you forget.
 
 ## Data model
 
-See **[docs/data-format.md](docs/data-format.md)** for the full contract. The short version:
+See **[docs/data-format.md](docs/data-format.md)** for the full contract. Here's the short version, anyway:
 
 - **Node**: `{ id, label, cluster, summary?, weight? (0..1), role? ("core"|"hub"|"subhub"|"leaf"), parentId?, lastSeenAt? }`
-  - `role`/`parentId` shape the layout: one `core` sits at the centre, `hub`s anchor
-    their cluster's sector, children ring their parent. Everything is optional —
-    plain nodes fall back to a tidy golden-spiral constellation per cluster.
-  - `lastSeenAt` drives the **age gradient**: fresh memories glow vivid and ride
-    proud of the surface; old ones cool toward slate and settle.
+ - `role`/`parentId` shape the layout: one `core` sits at the centre, `hub`s anchor their cluster's sector, children ring their parent. Everything is optional, plain nodes just fall back to a tidy golden-spiral constellation per cluster.
+ - `lastSeenAt` drives the **age gradient**: fresh memories glow vivid and ride proud of the surface; old ones cool toward slate and settle down.
 - **Edge**: `{ source, target, relation?, strength? (0..1), origin? ("explicit"|"semantic") }`
-  - Strong edges join the bright particle tier; weak ones form the faint fibre web.
+ - Strong edges join the bright particle tier; weak ones form the faint fibre web.
 
-Layout is **deterministic** — the same data always renders the same map, so the
-map becomes a place you learn.
+Layout is **deterministic**, the same data always renders the same map, so the map becomes a place you actually learn.
 
-## Theming — colours, clusters, camera, everything
+## Theming, colours, clusters, camera, everything
 
-Clusters are fully yours: name, colour, angular position on the disc, and a
-"persona" (how fast its rings spin, how big its halos glow, how readily it storms):
+Clusters are fully yours: name, colour, angular position on the disc, and a "persona" (how fast its rings spin, how big its halos glow, how readily it storms):
 
 ```tsx
 const clusters: ClusterDef[] = [
@@ -91,8 +80,7 @@ const clusters: ClusterDef[] = [
 ];
 ```
 
-The scene itself takes a `theme` prop — every field optional, defaults reproduce
-the look in the screenshots:
+The scene itself takes a `theme` prop, every field optional, defaults reproduce the look in the screenshots:
 
 ```tsx
 <CortexMap
@@ -108,13 +96,11 @@ the look in the screenshots:
 />
 ```
 
-The full knob list — and recipes for common looks (clean/minimal, high-energy,
-custom fonts via CSS variables) — is in **[docs/theming.md](docs/theming.md)**.
+The full knob list, and recipes for common looks (clean/minimal, high-energy, custom fonts via CSS variables), is in **[docs/theming.md](docs/theming.md)**.
 
-## Live effects — make it feel alive
+## Live effects, make it feel alive
 
-Grab the imperative handle to flash and ignite nodes as your data changes
-(webhooks, SSE, polling — whatever you have):
+Grab the imperative handle to flash and ignite nodes as your data changes (webhooks, SSE, polling, whatever you've got):
 
 ```tsx
 const map = useRef<CortexMapHandle>(null);
@@ -128,36 +114,27 @@ map.current?.ignite(["a", "b", "c"]); // chain-reaction spread along the edges
 map.current?.focus("node-id");        // fly the camera to a node
 ```
 
-Sustained activity in one cluster builds a **storm** in the sea at that cluster's
-sector — the map literally shows where the mind is working hardest.
+Sustained activity in one cluster builds a **storm** in the sea at that cluster's sector, so the map literally shows where the mind is working hardest. It's a nice touch, honestly.
 
 ## Built-in UI
 
-- **⌘K search** — instant fuzzy search over labels + summaries, Enter flies to the hit
-- **Node inspector** — click an orb: connections ranked by strength, click-through navigation
-- **Proximity picker** — a click in a dense cluster lists every orb packed at that spot
-- **Double-click** — cinematic two-leg camera swoop to the node
-- **Lite mode** — flat 2D fallback for low-power devices (auto on small screens,
-  forced by `prefers-reduced-motion`, toggleable)
+- **⌘K search**, instant fuzzy search over labels + summaries, Enter flies to the hit
+- **Node inspector**, click an orb: connections ranked by strength, click-through navigation
+- **Proximity picker**, a click in a dense cluster lists every orb packed at that spot
+- **Double-click**, cinematic two-leg camera swoop to the node
+- **Lite mode**, flat 2D fallback for low-power devices (auto on small screens, forced by `prefers-reduced-motion`, toggleable)
 
-All optional — `search={false}` / `inspector={false}` and bring your own via
-`onNodeSelect`.
+All optional, `search={false}` / `inspector={false}` and bring your own via `onNodeSelect`.
 
 ## Performance
 
-This scene is heavily optimised (it started life rendering a real 600-node
-personal memory graph): render-on-demand with a sleeping loop, raycast exclusion
-for all decorative furniture, geometry-stable accessors, shared shader clocks,
-capped device-pixel-ratio, and a GPU-only ambient loop for the water. Expect
-smooth interaction with a few hundred to a couple of thousand nodes.
+This scene is heavily optimised. It started life rendering a real 600-node personal memory graph, so it had to be: render-on-demand with a sleeping loop, raycast exclusion for all decorative furniture, geometry-stable accessors, shared shader clocks, capped device-pixel-ratio, and a GPU-only ambient loop for the water. Expect smooth interaction with a few hundred to a couple of thousand nodes.
 
-## Hosted version — interested?
+## Hosted version, interested?
 
-We're gauging interest in a **hosted brain backend**: connect your data sources,
-we handle storage, embeddings, and automatic semantic linking — your map stays
-this component, pointed at our API.
+We're gauging interest in a **hosted brain backend**: connect your data sources, we handle storage, embeddings, and automatic semantic linking, your map stays this component, just pointed at our API.
 
-**[→ Join the waitlist](https://github.com/StovBuilds/cortex-map/issues/1)** (a 👍 is enough).
+**[→ Join the waitlist](https://github.com/StovBuilds/cortex-map/issues/1)** (a 👍 is enough, honestly).
 
 ## Development
 
@@ -168,8 +145,7 @@ npm run typecheck
 npm run build      # package (tsup) + demo (vite)
 ```
 
-The demo consumes the package source directly — edit `packages/cortex-map/src/`
-and the dev server hot-reloads.
+The demo consumes the package source directly, edit `packages/cortex-map/src/` and the dev server hot-reloads.
 
 ## License
 
