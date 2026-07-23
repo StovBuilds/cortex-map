@@ -1,5 +1,8 @@
 import { useState } from "react";
-import { DEFAULT_THEME, type CortexMapTheme, type ClusterDef } from "cortex-map";
+import {
+  DEFAULT_THEME,
+  type CortexMapTheme, type ClusterDef, type ClusterPersona,
+} from "cortex-map";
 
 /**
  * Live theming panel for the demo.
@@ -8,7 +11,8 @@ import { DEFAULT_THEME, type CortexMapTheme, type ClusterDef } from "cortex-map"
  * feeds <CortexMap/>, so the scene rebuilds as you drag — the point is to let
  * someone evaluating the library see, in their browser, what their own numbers
  * would look like before they wire it into an app. "Copy theme" hands back the
- * minimal `theme={{…}}` delta so what you tuned here is what you paste there.
+ * minimal `theme={{…}}` delta (and any changed cluster defs) so what you tuned
+ * here is what you paste there.
  *
  * The panel edits nothing itself: it is a pure controlled surface over state
  * that lives in App, which is what keeps the deferred-value throttling honest.
@@ -18,6 +22,10 @@ const ink = "rgba(226,236,250,0.92)";
 const dim = "rgba(148,168,198,0.72)";
 const line = "rgba(120,165,210,0.18)";
 const font = "ui-sans-serif, system-ui, sans-serif";
+
+// Mirrors the library's NEUTRAL_PERSONA — used to show a cluster's effective
+// motion when its persona is partial or absent.
+const NEUTRAL: ClusterPersona = { ringRate: 1, halo: 1, volatility: 0.5 };
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -51,16 +59,22 @@ function Slider({
   );
 }
 
-function Color({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+function Color({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <input
+      type="color" value={value} onChange={(e) => onChange(e.target.value)}
+      style={{ width: 26, height: 20, padding: 0, border: `1px solid ${line}`, borderRadius: 4, background: "none", cursor: "pointer" }}
+    />
+  );
+}
+
+function ColorRow({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
     <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 12, color: ink }}>
       <span>{label}</span>
       <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <span style={{ color: dim, fontVariantNumeric: "tabular-nums", fontSize: 11 }}>{value}</span>
-        <input
-          type="color" value={value} onChange={(e) => onChange(e.target.value)}
-          style={{ width: 26, height: 20, padding: 0, border: `1px solid ${line}`, borderRadius: 4, background: "none", cursor: "pointer" }}
-        />
+        <Color value={value} onChange={onChange} />
       </span>
     </label>
   );
@@ -75,21 +89,52 @@ function Toggle({ label, value, onChange }: { label: string; value: boolean; onC
   );
 }
 
-/** Minimal `theme={{…}}` snippet: only what differs from the default, plus any
- *  recoloured clusters — the smallest thing someone can paste and reproduce. */
-function themeSnippet(theme: CortexMapTheme, clusters: ClusterDef[], baseClusters: ClusterDef[]): string {
+/** A constellation: colour swatch in the header, expandable to its motion
+ *  "persona" (ring spin, glow halo, storminess) — biomes, not recoloured copies. */
+function ClusterRow({
+  cluster, onPatch,
+}: {
+  cluster: ClusterDef; onPatch: (patch: Partial<ClusterDef>) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const p = { ...NEUTRAL, ...cluster.persona };
+  const setP = (k: keyof ClusterPersona, v: number) => onPatch({ persona: { ...p, [k]: v } });
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <button
+          onClick={() => setOpen((o) => !o)}
+          style={{ font: "inherit", fontSize: 12, color: ink, background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex", gap: 6, alignItems: "center" }}
+        >
+          <span style={{ color: dim, width: 8 }}>{open ? "▾" : "▸"}</span>{cluster.name}
+        </button>
+        <Color value={cluster.color} onChange={(color) => onPatch({ color })} />
+      </div>
+      {open && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "8px 2px 4px 14px" }}>
+          <Slider label="Ring rate" value={p.ringRate} min={0} max={3} step={0.1} onChange={(v) => setP("ringRate", v)} format={(v) => `×${v.toFixed(1)}`} />
+          <Slider label="Halo" value={p.halo} min={0.3} max={2} step={0.05} onChange={(v) => setP("halo", v)} format={(v) => `×${v.toFixed(2)}`} />
+          <Slider label="Volatility" value={p.volatility} min={0} max={1} step={0.05} onChange={(v) => setP("volatility", v)} format={(v) => v.toFixed(2)} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Minimal snippet: only the theme keys that differ from the default, plus any
+ *  cluster whose colour OR persona was touched — the smallest thing someone can
+ *  paste and reproduce. */
+function snippet(theme: CortexMapTheme, clusters: ClusterDef[], base: ClusterDef[]): string {
   const delta: Record<string, unknown> = {};
   for (const k of Object.keys(DEFAULT_THEME) as (keyof CortexMapTheme)[]) {
     if (JSON.stringify(theme[k]) !== JSON.stringify(DEFAULT_THEME[k])) delta[k] = theme[k];
   }
-  const recoloured = clusters
-    .filter((c, i) => c.color !== baseClusters[i]?.color)
-    .map((c) => `  { name: ${JSON.stringify(c.name)}, color: ${JSON.stringify(c.color)} }`);
+  const changed = clusters.filter((c, i) => JSON.stringify(c) !== JSON.stringify(base[i]));
 
-  const lines: string[] = [];
-  if (Object.keys(delta).length) lines.push(`theme={${JSON.stringify(delta, null, 2)}}`);
-  if (recoloured.length) lines.push(`// recoloured clusters:\n${recoloured.join(",\n")}`);
-  return lines.join("\n\n") || "// all defaults — nothing to override";
+  const parts: string[] = [];
+  if (Object.keys(delta).length) parts.push(`theme={${JSON.stringify(delta, null, 2)}}`);
+  if (changed.length) parts.push(`// changed clusters:\n${changed.map((c) => "  " + JSON.stringify(c)).join(",\n")}`);
+  return parts.join("\n\n") || "// all defaults — nothing to override";
 }
 
 export interface ControlsProps {
@@ -97,7 +142,8 @@ export interface ControlsProps {
   onTheme: (patch: Partial<CortexMapTheme>) => void;
   clusters: ClusterDef[];
   baseClusters: ClusterDef[];
-  onCluster: (name: string, color: string) => void;
+  /** Patch any field(s) of a named cluster — colour and/or persona. */
+  onCluster: (name: string, patch: Partial<ClusterDef>) => void;
   onReset: () => void;
 }
 
@@ -108,7 +154,7 @@ export function Controls({ theme, onTheme, clusters, baseClusters, onCluster, on
 
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(themeSnippet(theme, clusters, baseClusters));
+      await navigator.clipboard.writeText(snippet(theme, clusters, baseClusters));
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1400);
     } catch {
@@ -148,16 +194,34 @@ export function Controls({ theme, onTheme, clusters, baseClusters, onCluster, on
               onChange={(v) => onTheme({ ageLift: v })} />
           </Section>
 
-          <Section title="Colour">
-            <Color label="Void" value={theme.background} onChange={(v) => onTheme({ background: v })} />
-            <Color label="Pulse flash" value={theme.flashColor} onChange={(v) => onTheme({ flashColor: v })} />
-            <Color label="Aged memory" value={theme.agedColor} onChange={(v) => onTheme({ agedColor: v })} />
+          <Section title="Camera (start angle)">
+            <Slider label="Height" value={theme.cameraStart.y} min={120} max={1500} step={20}
+              onChange={(v) => onTheme({ cameraStart: { ...theme.cameraStart, y: v } })} />
+            <Slider label="Distance" value={theme.cameraStart.z} min={500} max={2600} step={20}
+              onChange={(v) => onTheme({ cameraStart: { ...theme.cameraStart, z: v } })} />
           </Section>
 
-          <Section title="Constellations">
+          <Section title="Colour">
+            <ColorRow label="Void" value={theme.background} onChange={(v) => onTheme({ background: v })} />
+            <ColorRow label="Pulse flash" value={theme.flashColor} onChange={(v) => onTheme({ flashColor: v })} />
+            <ColorRow label="Aged memory" value={theme.agedColor} onChange={(v) => onTheme({ agedColor: v })} />
+          </Section>
+
+          <Section title="Constellations — colour + motion">
             {clusters.map((c) => (
-              <Color key={c.name} label={c.name} value={c.color} onChange={(v) => onCluster(c.name, v)} />
+              <ClusterRow key={c.name} cluster={c} onPatch={(patch) => onCluster(c.name, patch)} />
             ))}
+          </Section>
+
+          <Section title="Links & pillars">
+            <Slider label="Faint-link floor" value={theme.linkFibreMin} min={0} max={1} step={0.02}
+              onChange={(v) => onTheme({ linkFibreMin: v })} format={(v) => v.toFixed(2)} />
+            <Slider label="Bright-link cutoff" value={theme.linkBrightMin} min={0} max={1} step={0.02}
+              onChange={(v) => onTheme({ linkBrightMin: v })} format={(v) => v.toFixed(2)} />
+            <Slider label="Explicit bright" value={theme.linkBrightExplicit} min={0} max={1} step={0.02}
+              onChange={(v) => onTheme({ linkBrightExplicit: v })} format={(v) => v.toFixed(2)} />
+            <Slider label="Light-pillar weight" value={theme.pillarMinWeight} min={0} max={1} step={0.02}
+              onChange={(v) => onTheme({ pillarMinWeight: v })} format={(v) => v.toFixed(2)} />
           </Section>
 
           <Section title="Waves & atmosphere">

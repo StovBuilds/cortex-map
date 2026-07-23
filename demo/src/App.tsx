@@ -21,8 +21,8 @@ export default function App() {
   const deferredClusters = useDeferredValue(clusters);
 
   const patchTheme = (patch: Partial<CortexMapTheme>) => setTheme((t) => ({ ...t, ...patch }));
-  const recolourCluster = (name: string, color: string) =>
-    setClusters((cs) => cs.map((c) => (c.name === name ? { ...c, color } : c)));
+  const patchCluster = (name: string, patch: Partial<ClusterDef>) =>
+    setClusters((cs) => cs.map((c) => (c.name === name ? { ...c, ...patch } : c)));
   const reset = () => {
     setTheme({ ...DEFAULT_THEME });
     setClusters(CLUSTERS.map((c) => ({ ...c })));
@@ -90,7 +90,7 @@ export default function App() {
           onTheme={patchTheme}
           clusters={clusters}
           baseClusters={CLUSTERS}
-          onCluster={recolourCluster}
+          onCluster={patchCluster}
           onReset={reset}
         />
       </main>
