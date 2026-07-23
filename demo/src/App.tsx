@@ -1,11 +1,32 @@
-import { useMemo, useRef, useState } from "react";
-import { CortexMap, type CortexMapHandle, type CortexMapNode } from "cortex-map";
+import { useDeferredValue, useMemo, useRef, useState } from "react";
+import {
+  CortexMap, DEFAULT_THEME,
+  type ClusterDef, type CortexMapHandle, type CortexMapNode, type CortexMapTheme,
+} from "cortex-map";
 import { CLUSTERS, makeSampleData } from "./sampleData";
+import { Controls } from "./Controls";
 
 export default function App() {
   const { nodes, edges } = useMemo(() => makeSampleData(), []);
   const mapRef = useRef<CortexMapHandle>(null);
   const [selected, setSelected] = useState<CortexMapNode | null>(null);
+
+  // Live theming state. The controls write here; the map reads a DEFERRED copy
+  // so dragging a slider stays smooth — React coalesces the rapid updates and
+  // only rebuilds the (expensive) scene once the input settles, instead of on
+  // every intermediate value.
+  const [theme, setTheme] = useState<CortexMapTheme>(() => ({ ...DEFAULT_THEME }));
+  const [clusters, setClusters] = useState<ClusterDef[]>(() => CLUSTERS.map((c) => ({ ...c })));
+  const deferredTheme = useDeferredValue(theme);
+  const deferredClusters = useDeferredValue(clusters);
+
+  const patchTheme = (patch: Partial<CortexMapTheme>) => setTheme((t) => ({ ...t, ...patch }));
+  const recolourCluster = (name: string, color: string) =>
+    setClusters((cs) => cs.map((c) => (c.name === name ? { ...c, color } : c)));
+  const reset = () => {
+    setTheme({ ...DEFAULT_THEME });
+    setClusters(CLUSTERS.map((c) => ({ ...c })));
+  };
 
   // "live brain" simulation — flash a random node every few seconds so the
   // map ripples and storms like it does over a real event stream.
@@ -27,7 +48,7 @@ export default function App() {
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, display: "flex", flexDirection: "column", background: "#04060d" }}>
+    <div style={{ position: "fixed", inset: 0, display: "flex", flexDirection: "column", background: theme.background }}>
       <header
         style={{
           display: "flex", alignItems: "center", gap: 12, padding: "10px 16px", zIndex: 10,
@@ -49,19 +70,28 @@ export default function App() {
           {live ? "■ stop the stream" : "▶ simulate a live brain"}
         </button>
         <a
-          href="https://github.com/NoctemJack/cortex-map"
+          href="https://github.com/StovBuilds/cortex-map"
           style={{ color: "#8fc7ff", textDecoration: "none" }}
         >
           GitHub ↗
         </a>
       </header>
-      <main style={{ flex: 1, minHeight: 0 }}>
+      <main style={{ flex: 1, minHeight: 0, position: "relative" }}>
         <CortexMap
           ref={mapRef}
           nodes={nodes}
           edges={edges}
-          clusters={CLUSTERS}
+          clusters={deferredClusters}
+          theme={deferredTheme}
           onNodeSelect={setSelected}
+        />
+        <Controls
+          theme={theme}
+          onTheme={patchTheme}
+          clusters={clusters}
+          baseClusters={CLUSTERS}
+          onCluster={recolourCluster}
+          onReset={reset}
         />
       </main>
       {selected && (
