@@ -27,6 +27,7 @@ import {
   makeDust,
   makeFuturesBranch,
   makeGlobe,
+  makeEquatorialRing,
   makeGlowSprite,
   makeGroundPlane,
   makeNebula,
@@ -393,40 +394,39 @@ export const CortexMap = forwardRef<CortexMapHandle, CortexMapProps>(function Co
       }
     }
 
-    // Globe projection (prototype): re-place the just-computed disc layout onto
-    // a sphere. Each cluster becomes a continent centred on its golden-angle
-    // point; a node's offset from its cluster's disc centroid rides the tangent
-    // plane there, then projects to the surface (+age lift along the normal).
-    // The core sits at the sphere centre — a glowing heart the hubs radiate from.
+    // Globe projection: a lit central world with the clusters floating around
+    // it as their own little orbital systems (the reference look). Each cluster
+    // keeps its whole disc layout, shrunk and lifted off to a golden-angle point
+    // out beyond the globe, oriented to face outward. The core sits at the
+    // world's centre — the globe body is its avatar.
     if (use3d && globe) {
       const R = T.groundRadius;
+      const satR = R * 2.0; // how far the satellite systems orbit the globe
       const idx = new Map(layout.names.map((nm, i) => [nm, i]));
       const nC = layout.names.length;
+      // per-cluster disc centroid, so a node's offset is measured from its
+      // own cluster's middle (each cluster becomes a self-contained system).
       const sum = new Map<string, { x: number; z: number; n: number }>();
       for (const n of nodes) {
         const p = relaxed.get(n.id) ?? home.get(n.id) ?? { x: 0, z: 0 };
         const s = sum.get(n.cluster) ?? { x: 0, z: 0, n: 0 };
         s.x += p.x; s.z += p.z; s.n += 1; sum.set(n.cluster, s);
       }
-      const patchScale = R / 320; // disc units → tangent units on the sphere
+      const patchScale = 0.62; // shrink each cluster into a compact satellite
       for (const n of nodes) {
-        n.__lift = 0; // radial lift is baked into the position; no y-offset
+        n.__lift = 0;
         if (n.role === "core") { n.x = n.fx = 0; n.y = n.fy = 0; n.z = n.fz = 0; continue; }
         const p = relaxed.get(n.id) ?? home.get(n.id) ?? { x: 0, z: 0 };
         const s = sum.get(n.cluster) ?? { x: 0, z: 0, n: 1 };
         const lx = (p.x - s.x / s.n) * patchScale;
         const lz = (p.z - s.z / s.n) * patchScale;
-        const d = fibDir(idx.get(n.cluster) ?? 0, nC);
+        const d = fibDir(idx.get(n.cluster) ?? 0, nC); // satellite direction
         const up = Math.abs(d[1]) < 0.99 ? [0, 1, 0] : [1, 0, 0];
-        const t1 = norm(cross(up, d));
-        const t2 = cross(d, t1); // unit (d, t1 orthonormal)
-        const lift = !n.role || n.role === "leaf" ? ((n.__fresh ?? 0.5) - 0.5) * T.ageLift : 0;
-        const px = d[0] * R + t1[0] * lx + t2[0] * lz;
-        const py = d[1] * R + t1[1] * lx + t2[1] * lz;
-        const pz = d[2] * R + t1[2] * lx + t2[2] * lz;
-        const [ux, uy, uz] = norm([px, py, pz]);
-        const rr = R + lift;
-        n.x = n.fx = ux * rr; n.y = n.fy = uy * rr; n.z = n.fz = uz * rr;
+        const t1 = norm(cross(up, d));   // in-plane axis, tangent to the orbit
+        const t2 = cross(d, t1);         // the other in-plane axis
+        n.x = n.fx = d[0] * satR + t1[0] * lx + t2[0] * lz;
+        n.y = n.fy = d[1] * satR + t1[1] * lx + t2[1] * lz;
+        n.z = n.fz = d[2] * satR + t1[2] * lx + t2[2] * lz;
       }
     }
 
@@ -619,17 +619,18 @@ export const CortexMap = forwardRef<CortexMapHandle, CortexMapProps>(function Co
             const group = new THREE.Group();
 
             if (globe) {
-              // Globe furniture: the sphere itself + continent labels floated
-              // just off the surface. The disc-only pieces (sea, ground plane,
-              // ground rings, bezel) are meaningless here and dropped.
+              // Globe furniture: the lit world, its equatorial ring (the old
+              // bezel), and each cluster's label floated by its satellite. The
+              // disc-only pieces (sea, ground plane, ground rings) are dropped.
               group.add(makeGlobe(THREE, T.groundRadius));
-              group.add(makeGlowSprite(THREE, 300)); // core heart at the centre
+              if (T.outerDisk) group.add(makeEquatorialRing(THREE, T.groundRadius * 1.28));
               if (T.clusterLabels) {
                 const nC = layout.names.length;
+                const satR = T.groundRadius * 2.0;
                 layout.names.forEach((c, i) => {
                   const d = fibDir(i, nC);
                   const spr = makeTextSprite(THREE, c.toUpperCase(), clusterColor(c));
-                  const rr = T.groundRadius * 1.08; // float labels off the surface
+                  const rr = satR * 1.16; // sit the label just outside its system
                   spr.position.set(d[0] * rr, d[1] * rr, d[2] * rr);
                   group.add(spr);
                 });
@@ -701,14 +702,16 @@ export const CortexMap = forwardRef<CortexMapHandle, CortexMapProps>(function Co
       // frame the disc at a low oblique angle, once
       if (!(fg as any).__framed) {
         try {
-          // Globe: orbit the sphere from a little above, aimed at its centre;
-          // the table's low oblique "look across" start would bury it.
+          // Globe: orbit from a little above, aimed at the world's centre, far
+          // enough back to frame the satellites (they orbit at ~1.62×R).
           const camStart = globe
-            ? { x: 0, y: T.groundRadius * 0.55, z: T.groundRadius * 2.6 }
+            ? { x: 0, y: T.groundRadius * 0.5, z: T.groundRadius * 4.2 }
             : T.cameraStart;
           const camLook = globe ? { x: 0, y: 0, z: 0 } : T.cameraLook;
           fg.cameraPosition(camStart, camLook, 0);
-          setTimeout(() => { try { fg.zoomToFit(800, 130); } catch { /* */ } }, 80);
+          // Table auto-fits to the node spread; the globe uses its explicit
+          // framing (zoomToFit would ignore the world body and zoom past it).
+          if (!globe) setTimeout(() => { try { fg.zoomToFit(800, 130); } catch { /* */ } }, 80);
           (fg as any).__framed = true;
         } catch { /* */ }
       }
@@ -1032,6 +1035,9 @@ export const CortexMap = forwardRef<CortexMapHandle, CortexMapProps>(function Co
     if (!THREE || !use3d) return undefined;
     const dimmed = dimSetRef.current?.has(n.id) ?? false;
     const isCore = n.role === "core";
+    // Globe: the world body IS the core, so the core node itself is hidden
+    // (it sits at the sphere centre and would just glow through the surface).
+    if (globe && isCore) return new THREE.Group();
     const colour = isCore ? "#ffe6b0" : clusterColor(n.cluster);
     const persona = clusterPersona(n.cluster);
     const lift = n.__lift ?? 0;
@@ -1134,7 +1140,10 @@ export const CortexMap = forwardRef<CortexMapHandle, CortexMapProps>(function Co
       className={`cortex-map${className ? ` ${className}` : ""}`}
       style={{ background: T.background, width: "100%", height: "100%", ...style }}
     >
-      {GraphComp ? <GraphComp {...commonProps} /> : (
+      {/* Remount the graph when the projection flips: the scene furniture and
+          camera are set once behind __decorated/__framed guards on the graph
+          instance, so a fresh instance is the clean way to re-run them. */}
+      {GraphComp ? <GraphComp key={globe ? "globe" : "table"} {...commonProps} /> : (
         <div className="cm-status">initialising map…</div>
       )}
 

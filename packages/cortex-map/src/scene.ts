@@ -722,29 +722,118 @@ export function makeTextSprite(THREE: any, text: string, color: string): any {
   return spr;
 }
 
-// ── globe projection (prototype) ─────────────────────────────────────────────
-// An alternative to the war-table disc: a translucent world the nodes ride the
-// surface of and the camera orbits. A dark inner shell hides the far side's
-// nodes just enough to read depth, with a faint lat/long wire over it and a
-// soft rim so the silhouette catches the void. Radius = the node sphere radius.
+// ── globe projection ─────────────────────────────────────────────────────────
+// A lit central world the clusters orbit as satellites: an opaque night-side
+// sphere freckled with city-lights, a lat/long grid, a fresnel atmosphere that
+// glows at the limb, and a sunrise flare at the crown. Radius = globe radius.
 export function makeGlobe(THREE: any, radius: number): any {
   const g = new THREE.Group();
 
-  // Inner shell — slightly under the node radius, translucent, so orbs on the
-  // near face read bright and the far face dims through it (depth cue) without
-  // fully occluding — the map should still feel like an open constellation.
-  const shell = new THREE.Mesh(
-    new THREE.SphereGeometry(radius * 0.985, 48, 32),
-    new THREE.MeshBasicMaterial({ color: 0x0a1526, transparent: true, opacity: 0.55, depthWrite: true }),
+  // Opaque night-side body — a solid world, not a translucent shell, so it
+  // reads as a planet the satellites float in front of / behind.
+  const body = new THREE.Mesh(
+    new THREE.SphereGeometry(radius, 64, 48),
+    new THREE.MeshBasicMaterial({ color: 0x122942 }),
   );
-  g.add(shell);
+  g.add(body);
 
-  // Lat/long wireframe just above the shell — the "grid" that reads as a globe.
-  const wire = new THREE.Mesh(
-    new THREE.SphereGeometry(radius * 0.99, 36, 24),
-    new THREE.MeshBasicMaterial({ color: 0x2c4a6e, wireframe: true, transparent: true, opacity: 0.22 }),
+  // Lat/long grid just above the surface.
+  g.add(new THREE.Mesh(
+    new THREE.SphereGeometry(radius * 1.004, 36, 24),
+    new THREE.MeshBasicMaterial({ color: 0x3b6ea3, wireframe: true, transparent: true, opacity: 0.4 }),
+  ));
+
+  // City-lights: warm/cool points on the surface, clumped into "continents"
+  // so the field reads as land rather than uniform noise.
+  const N = 3600;
+  const pos = new Float32Array(N * 3);
+  const col = new Float32Array(N * 3);
+  const warm = [1.0, 0.78, 0.46];
+  const cool = [0.5, 0.74, 1.0];
+  const hubs: [number, number, number][] = [];
+  for (let i = 0; i < 16; i++) {
+    const u = Math.random() * 2 - 1, th = Math.random() * Math.PI * 2, s = Math.sqrt(1 - u * u);
+    hubs.push([s * Math.cos(th), u, s * Math.sin(th)]);
+  }
+  for (let i = 0; i < N; i++) {
+    let x: number, y: number, z: number;
+    if (Math.random() < 0.6) {
+      const h = hubs[(Math.random() * hubs.length) | 0];
+      x = h[0] + (Math.random() - 0.5) * 0.5;
+      y = h[1] + (Math.random() - 0.5) * 0.5;
+      z = h[2] + (Math.random() - 0.5) * 0.5;
+    } else {
+      const u = Math.random() * 2 - 1, th = Math.random() * Math.PI * 2, s = Math.sqrt(1 - u * u);
+      x = s * Math.cos(th); y = u; z = s * Math.sin(th);
+    }
+    const l = Math.hypot(x, y, z) || 1;
+    const rr = radius * 1.008;
+    pos[i * 3] = (x / l) * rr; pos[i * 3 + 1] = (y / l) * rr; pos[i * 3 + 2] = (z / l) * rr;
+    const base = Math.random() < 0.66 ? warm : cool;
+    const b = 0.6 + Math.random() * 0.8;
+    col[i * 3] = base[0] * b; col[i * 3 + 1] = base[1] * b; col[i * 3 + 2] = base[2] * b;
+  }
+  const lgeo = new THREE.BufferGeometry();
+  lgeo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+  lgeo.setAttribute("color", new THREE.BufferAttribute(col, 3));
+  g.add(new THREE.Points(lgeo, new THREE.PointsMaterial({
+    size: 8, map: glowTexture(THREE), vertexColors: true, transparent: true,
+    depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true,
+  })));
+
+  // Atmosphere: a back-side sphere whose fresnel term brightens at the limb,
+  // so the world is haloed by a thin glowing rim against the void.
+  const atmo = new THREE.Mesh(
+    new THREE.SphereGeometry(radius * 1.14, 48, 32),
+    new THREE.ShaderMaterial({
+      transparent: true, side: THREE.BackSide, blending: THREE.AdditiveBlending, depthWrite: false,
+      uniforms: { uColor: { value: new THREE.Color(0x3d7bd0) } },
+      vertexShader: `varying vec3 vN; varying vec3 vP;
+        void main(){ vN = normalize(normalMatrix * normal); vec4 mv = modelViewMatrix * vec4(position,1.0); vP = mv.xyz; gl_Position = projectionMatrix * mv; }`,
+      fragmentShader: `varying vec3 vN; varying vec3 vP; uniform vec3 uColor;
+        void main(){ float f = pow(1.0 - abs(dot(normalize(vN), normalize(-vP))), 3.0); gl_FragColor = vec4(uColor, f * 0.9); }`,
+    }),
   );
-  g.add(wire);
+  g.add(atmo);
 
+  // Sunrise flare — a small warm bloom tucked behind the top limb, so the
+  // world catches a dawn on its crown rather than a blaze at its centre.
+  const flare = makeGlowSprite(THREE, radius * 0.34);
+  flare.position.set(0, radius * 0.96, -radius * 0.3);
+  g.add(flare);
+
+  return g;
+}
+
+/** The old table bezel, reborn as an orbital ring around the globe's equator:
+ *  two faint gold loops with a dotted run between them, in the XZ plane. */
+export function makeEquatorialRing(THREE: any, radius: number): any {
+  const g = new THREE.Group();
+  const GOLD = 0xd8b06a;
+  for (const rr of [radius, radius * 1.06]) {
+    const pts: any[] = [];
+    for (let i = 0; i <= 200; i++) {
+      const a = (i / 200) * Math.PI * 2;
+      pts.push(new THREE.Vector3(Math.cos(a) * rr, 0, Math.sin(a) * rr));
+    }
+    g.add(new THREE.LineLoop(
+      new THREE.BufferGeometry().setFromPoints(pts),
+      new THREE.LineBasicMaterial({ color: GOLD, transparent: true, opacity: 0.6 }),
+    ));
+  }
+  // dotted run between the loops
+  const D = 300;
+  const dp = new Float32Array(D * 3);
+  for (let i = 0; i < D; i++) {
+    const a = (i / D) * Math.PI * 2;
+    const rr = radius * 1.03;
+    dp[i * 3] = Math.cos(a) * rr; dp[i * 3 + 1] = 0; dp[i * 3 + 2] = Math.sin(a) * rr;
+  }
+  const dg = new THREE.BufferGeometry();
+  dg.setAttribute("position", new THREE.BufferAttribute(dp, 3));
+  g.add(new THREE.Points(dg, new THREE.PointsMaterial({
+    color: GOLD, size: 6, map: glowTexture(THREE), transparent: true,
+    depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true,
+  })));
   return g;
 }
