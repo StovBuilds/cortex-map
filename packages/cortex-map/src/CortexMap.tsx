@@ -89,6 +89,12 @@ export const DEFAULT_THEME: CortexMapTheme = {
   outerDisk: true,
   clusterLabels: true,
   pixelRatioCap: 1.5,
+  globeColor: "#122942",
+  globeOpacity: 1,
+  globeVisible: true,
+  globeGridOutside: false,
+  globeOrbsOnSurface: false,
+  globeLabelRadius: 2.32,
 };
 
 // Weather — per-cluster activity accumulates into a decaying "storm energy"; a
@@ -412,7 +418,11 @@ export const CortexMap = forwardRef<CortexMapHandle, CortexMapProps>(function Co
         const s = sum.get(n.cluster) ?? { x: 0, z: 0, n: 0 };
         s.x += p.x; s.z += p.z; s.n += 1; sum.set(n.cluster, s);
       }
-      const patchScale = 0.62; // shrink each cluster into a compact satellite
+      // Two placements: clusters orbit the world as satellites (default), or
+      // their orbs cling to its outer surface as continents.
+      const onSurface = T.globeOrbsOnSurface;
+      const orbitR = onSurface ? R : satR;
+      const patchScale = onSurface ? R / 320 : 0.62;
       for (const n of nodes) {
         n.__lift = 0;
         if (n.role === "core") { n.x = n.fx = 0; n.y = n.fy = 0; n.z = n.fz = 0; continue; }
@@ -420,13 +430,20 @@ export const CortexMap = forwardRef<CortexMapHandle, CortexMapProps>(function Co
         const s = sum.get(n.cluster) ?? { x: 0, z: 0, n: 1 };
         const lx = (p.x - s.x / s.n) * patchScale;
         const lz = (p.z - s.z / s.n) * patchScale;
-        const d = fibDir(idx.get(n.cluster) ?? 0, nC); // satellite direction
+        const d = fibDir(idx.get(n.cluster) ?? 0, nC); // cluster direction
         const up = Math.abs(d[1]) < 0.99 ? [0, 1, 0] : [1, 0, 0];
-        const t1 = norm(cross(up, d));   // in-plane axis, tangent to the orbit
+        const t1 = norm(cross(up, d));   // in-plane axis
         const t2 = cross(d, t1);         // the other in-plane axis
-        n.x = n.fx = d[0] * satR + t1[0] * lx + t2[0] * lz;
-        n.y = n.fy = d[1] * satR + t1[1] * lx + t2[1] * lz;
-        n.z = n.fz = d[2] * satR + t1[2] * lx + t2[2] * lz;
+        const px = d[0] * orbitR + t1[0] * lx + t2[0] * lz;
+        const py = d[1] * orbitR + t1[1] * lx + t2[1] * lz;
+        const pz = d[2] * orbitR + t1[2] * lx + t2[2] * lz;
+        if (onSurface) {
+          // re-project onto the sphere so orbs sit exactly on the skin
+          const [ux, uy, uz] = norm([px, py, pz]);
+          n.x = n.fx = ux * R; n.y = n.fy = uy * R; n.z = n.fz = uz * R;
+        } else {
+          n.x = n.fx = px; n.y = n.fy = py; n.z = n.fz = pz;
+        }
       }
     }
 
@@ -442,7 +459,7 @@ export const CortexMap = forwardRef<CortexMapHandle, CortexMapProps>(function Co
     // linkColour/Width split it into the faint + bright tiers at render.
     const renderLinks = links.filter((l) => l.origin === "explicit" || l.strength >= T.linkFibreMin);
     return { nodes, links, renderLinks };
-  }, [nodesProp, edgesProp, use3d, layout, T.sectorRadius, T.ageLift, T.linkFibreMin, T.groundRadius, domeY, globe]);
+  }, [nodesProp, edgesProp, use3d, layout, T.sectorRadius, T.ageLift, T.linkFibreMin, T.groundRadius, T.globeOrbsOnSurface, domeY, globe]);
 
   // keep the node-position map current for the ambient loop
   useEffect(() => {
@@ -622,15 +639,18 @@ export const CortexMap = forwardRef<CortexMapHandle, CortexMapProps>(function Co
               // Globe furniture: the lit world, its equatorial ring (the old
               // bezel), and each cluster's label floated by its satellite. The
               // disc-only pieces (sea, ground plane, ground rings) are dropped.
-              group.add(makeGlobe(THREE, T.groundRadius));
+              if (T.globeVisible) {
+                group.add(makeGlobe(THREE, T.groundRadius, {
+                  color: T.globeColor, opacity: T.globeOpacity, gridOutside: T.globeGridOutside,
+                }));
+              }
               if (T.outerDisk) group.add(makeEquatorialRing(THREE, T.groundRadius * 1.28));
               if (T.clusterLabels) {
                 const nC = layout.names.length;
-                const satR = T.groundRadius * 2.0;
+                const rr = T.groundRadius * T.globeLabelRadius; // user-set label distance
                 layout.names.forEach((c, i) => {
                   const d = fibDir(i, nC);
                   const spr = makeTextSprite(THREE, c.toUpperCase(), clusterColor(c));
-                  const rr = satR * 1.16; // sit the label just outside its system
                   spr.position.set(d[0] * rr, d[1] * rr, d[2] * rr);
                   group.add(spr);
                 });
@@ -1140,10 +1160,14 @@ export const CortexMap = forwardRef<CortexMapHandle, CortexMapProps>(function Co
       className={`cortex-map${className ? ` ${className}` : ""}`}
       style={{ background: T.background, width: "100%", height: "100%", ...style }}
     >
-      {/* Remount the graph when the projection flips: the scene furniture and
-          camera are set once behind __decorated/__framed guards on the graph
-          instance, so a fresh instance is the clean way to re-run them. */}
-      {GraphComp ? <GraphComp key={globe ? "globe" : "table"} {...commonProps} /> : (
+      {/* Remount the graph when the projection flips OR any furniture-shaping
+          globe option changes: the scene furniture and camera are set once
+          behind __decorated/__framed guards on the graph instance, so a fresh
+          instance is the clean way to re-run them. (Deferred theme coalesces
+          slider drags, so this is one remount per settled change.) */}
+      {GraphComp ? <GraphComp key={globe
+        ? `globe:${T.globeVisible}:${T.globeGridOutside}:${T.globeOrbsOnSurface}:${T.globeColor}:${T.globeOpacity.toFixed(2)}:${T.globeLabelRadius.toFixed(2)}:${T.outerDisk}:${T.clusterLabels}`
+        : "table"} {...commonProps} /> : (
         <div className="cm-status">initialising map…</div>
       )}
 

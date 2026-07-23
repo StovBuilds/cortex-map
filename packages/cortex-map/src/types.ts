@@ -135,6 +135,20 @@ export interface CortexMapTheme {
   clusterLabels: boolean;
   /** Cap on renderer devicePixelRatio (mobile fragment-cost guard). */
   pixelRatioCap: number;
+
+  // ── globe projection (ignored when projection !== "globe") ──────────────────
+  /** Globe body fill colour. */
+  globeColor: string;
+  /** Globe body opacity, 0..1. Below 1 you see through to the interior / far side. */
+  globeOpacity: number;
+  /** Draw the globe body at all. Off = just the orbiting clusters + ring + labels. */
+  globeVisible: boolean;
+  /** Float the lat/long grid outside the body as a cage, rather than on its skin. */
+  globeGridOutside: boolean;
+  /** Orbs cling to the globe's outer surface (continents) instead of orbiting it. */
+  globeOrbsOnSurface: boolean;
+  /** Cluster-label distance from the globe centre, ×groundRadius. */
+  globeLabelRadius: number;
 }
 
 /** Imperative surface exposed via ref — live-map effects. */

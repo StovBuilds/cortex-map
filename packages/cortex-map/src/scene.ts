@@ -726,20 +726,31 @@ export function makeTextSprite(THREE: any, text: string, color: string): any {
 // A lit central world the clusters orbit as satellites: an opaque night-side
 // sphere freckled with city-lights, a lat/long grid, a fresnel atmosphere that
 // glows at the limb, and a sunrise flare at the crown. Radius = globe radius.
-export function makeGlobe(THREE: any, radius: number): any {
+export function makeGlobe(
+  THREE: any,
+  radius: number,
+  opts: { color?: string; opacity?: number; gridOutside?: boolean } = {},
+): any {
   const g = new THREE.Group();
+  const opacity = opts.opacity ?? 1;
 
-  // Opaque night-side body — a solid world, not a translucent shell, so it
-  // reads as a planet the satellites float in front of / behind.
-  const body = new THREE.Mesh(
-    new THREE.SphereGeometry(radius, 64, 48),
-    new THREE.MeshBasicMaterial({ color: 0x122942 }),
-  );
-  g.add(body);
+  // Night-side body — solid by default so the world reads as a planet; drop
+  // its opacity and you see straight through to the interior / far side.
+  if (opacity > 0.02) {
+    const solid = opacity >= 0.99;
+    const body = new THREE.Mesh(
+      new THREE.SphereGeometry(radius, 64, 48),
+      new THREE.MeshBasicMaterial({
+        color: new THREE.Color(opts.color ?? "#122942"),
+        transparent: !solid, opacity, depthWrite: solid,
+      }),
+    );
+    g.add(body);
+  }
 
-  // Lat/long grid just above the surface.
+  // Lat/long grid — on the skin, or floated out as a cage around the world.
   g.add(new THREE.Mesh(
-    new THREE.SphereGeometry(radius * 1.004, 36, 24),
+    new THREE.SphereGeometry(radius * (opts.gridOutside ? 1.13 : 1.004), 36, 24),
     new THREE.MeshBasicMaterial({ color: 0x3b6ea3, wireframe: true, transparent: true, opacity: 0.4 }),
   ));
 

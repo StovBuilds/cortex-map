@@ -205,6 +205,18 @@ export function Controls({ theme, onTheme, clusters, baseClusters, onCluster, pr
               ))}
             </div>
           </Section>
+          {projection === "globe" && (
+            <Section title="Globe">
+              <Toggle label="Show globe" value={theme.globeVisible} onChange={(v) => onTheme({ globeVisible: v })} />
+              <ColorRow label="Globe colour" value={theme.globeColor} onChange={(v) => onTheme({ globeColor: v })} />
+              <Slider label="Transparency" value={1 - theme.globeOpacity} min={0} max={1} step={0.05}
+                onChange={(v) => onTheme({ globeOpacity: 1 - v })} format={(v) => (v === 0 ? "solid" : v.toFixed(2))} />
+              <Toggle label="Grid outside globe" value={theme.globeGridOutside} onChange={(v) => onTheme({ globeGridOutside: v })} />
+              <Toggle label="Orbs on surface" value={theme.globeOrbsOnSurface} onChange={(v) => onTheme({ globeOrbsOnSurface: v })} />
+              <Slider label="Label distance" value={theme.globeLabelRadius} min={1.1} max={3.2} step={0.02}
+                onChange={(v) => onTheme({ globeLabelRadius: v })} format={(v) => `${v.toFixed(2)}×`} />
+            </Section>
+          )}
           <Section title="Shape & scale">
             <Slider label="Table size" value={theme.groundRadius} min={400} max={1200} step={10}
               onChange={(v) => onTheme({ groundRadius: v })} />
