@@ -144,10 +144,12 @@ export interface ControlsProps {
   baseClusters: ClusterDef[];
   /** Patch any field(s) of a named cluster — colour and/or persona. */
   onCluster: (name: string, patch: Partial<ClusterDef>) => void;
+  projection: "table" | "globe";
+  onProjection: (p: "table" | "globe") => void;
   onReset: () => void;
 }
 
-export function Controls({ theme, onTheme, clusters, baseClusters, onCluster, onReset }: ControlsProps) {
+export function Controls({ theme, onTheme, clusters, baseClusters, onCluster, projection, onProjection, onReset }: ControlsProps) {
   const [open, setOpen] = useState(true);
   const [copied, setCopied] = useState(false);
   const bloomOn = theme.bloom !== null;
@@ -185,6 +187,24 @@ export function Controls({ theme, onTheme, clusters, baseClusters, onCluster, on
 
       {open && (
         <div style={{ overflowY: "auto" }}>
+          <Section title="Projection">
+            <div style={{ display: "flex", gap: 6 }}>
+              {(["table", "globe"] as const).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => onProjection(p)}
+                  style={{
+                    flex: 1, font: "inherit", fontSize: 12, cursor: "pointer", textTransform: "capitalize",
+                    borderRadius: 8, padding: "6px 0", color: ink,
+                    border: `1px solid ${projection === p ? "rgba(90,214,160,0.55)" : line}`,
+                    background: projection === p ? "rgba(90,214,160,0.14)" : "transparent",
+                  }}
+                >
+                  {p}{p === "globe" ? " ·β" : ""}
+                </button>
+              ))}
+            </div>
+          </Section>
           <Section title="Shape & scale">
             <Slider label="Table size" value={theme.groundRadius} min={400} max={1200} step={10}
               onChange={(v) => onTheme({ groundRadius: v })} />

@@ -165,6 +165,13 @@ export interface CortexMapProps {
   reduceMotion?: boolean;
   /** Performance-lite mode (drops sea/bloom/starfield). Defaults to auto. */
   lite?: boolean;
+  /**
+   * Spatial projection. "table" (default) = the war-table domed disc.
+   * "globe" (prototype) = nodes ride the surface of a sphere the camera orbits,
+   * clusters spread as continents; the disc-only furniture (sea, bezel, ground
+   * rings) is dropped and light pillars are omitted.
+   */
+  projection?: "table" | "globe";
   className?: string;
   style?: React.CSSProperties;
 }

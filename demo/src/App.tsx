@@ -17,6 +17,7 @@ export default function App() {
   // every intermediate value.
   const [theme, setTheme] = useState<CortexMapTheme>(() => ({ ...DEFAULT_THEME }));
   const [clusters, setClusters] = useState<ClusterDef[]>(() => CLUSTERS.map((c) => ({ ...c })));
+  const [projection, setProjection] = useState<"table" | "globe">("table");
   const deferredTheme = useDeferredValue(theme);
   const deferredClusters = useDeferredValue(clusters);
 
@@ -83,6 +84,7 @@ export default function App() {
           edges={edges}
           clusters={deferredClusters}
           theme={deferredTheme}
+          projection={projection}
           onNodeSelect={setSelected}
         />
         <Controls
@@ -91,6 +93,8 @@ export default function App() {
           clusters={clusters}
           baseClusters={CLUSTERS}
           onCluster={patchCluster}
+          projection={projection}
+          onProjection={setProjection}
           onReset={reset}
         />
       </main>

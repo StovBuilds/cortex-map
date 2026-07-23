@@ -721,3 +721,30 @@ export function makeTextSprite(THREE: any, text: string, color: string): any {
   spr.scale.set(cv.width * worldPerPx, cv.height * worldPerPx, 1);
   return spr;
 }
+
+// ── globe projection (prototype) ─────────────────────────────────────────────
+// An alternative to the war-table disc: a translucent world the nodes ride the
+// surface of and the camera orbits. A dark inner shell hides the far side's
+// nodes just enough to read depth, with a faint lat/long wire over it and a
+// soft rim so the silhouette catches the void. Radius = the node sphere radius.
+export function makeGlobe(THREE: any, radius: number): any {
+  const g = new THREE.Group();
+
+  // Inner shell — slightly under the node radius, translucent, so orbs on the
+  // near face read bright and the far face dims through it (depth cue) without
+  // fully occluding — the map should still feel like an open constellation.
+  const shell = new THREE.Mesh(
+    new THREE.SphereGeometry(radius * 0.985, 48, 32),
+    new THREE.MeshBasicMaterial({ color: 0x0a1526, transparent: true, opacity: 0.55, depthWrite: true }),
+  );
+  g.add(shell);
+
+  // Lat/long wireframe just above the shell — the "grid" that reads as a globe.
+  const wire = new THREE.Mesh(
+    new THREE.SphereGeometry(radius * 0.99, 36, 24),
+    new THREE.MeshBasicMaterial({ color: 0x2c4a6e, wireframe: true, transparent: true, opacity: 0.22 }),
+  );
+  g.add(wire);
+
+  return g;
+}

@@ -26,6 +26,7 @@ import {
   hexLerp,
   makeDust,
   makeFuturesBranch,
+  makeGlobe,
   makeGlowSprite,
   makeGroundPlane,
   makeNebula,
@@ -41,6 +42,24 @@ import {
   SEA_RIPPLE_TTL,
 } from "./scene";
 import { useCortexMapStyles } from "./styles";
+
+// Globe projection (prototype) helpers ───────────────────────────────────────
+// Cluster "continent" centres are spread over the sphere with the same golden-
+// angle spiral the disc uses for nodes, so N clusters sit evenly apart.
+const GOLDEN = Math.PI * (3 - Math.sqrt(5));
+function fibDir(i: number, n: number): [number, number, number] {
+  const y = n <= 1 ? 0 : 1 - (i / (n - 1)) * 2;
+  const rad = Math.sqrt(Math.max(0, 1 - y * y));
+  const th = i * GOLDEN;
+  return [Math.cos(th) * rad, y, Math.sin(th) * rad];
+}
+const cross = (a: number[], b: number[]): [number, number, number] => [
+  a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0],
+];
+const norm = (v: number[]): [number, number, number] => {
+  const l = Math.hypot(v[0], v[1], v[2]) || 1;
+  return [v[0] / l, v[1] / l, v[2] / l];
+};
 
 export const DEFAULT_THEME: CortexMapTheme = {
   background: "#04060d",
@@ -151,11 +170,13 @@ export const CortexMap = forwardRef<CortexMapHandle, CortexMapProps>(function Co
     inspector = true,
     reduceMotion: reduceMotionProp,
     lite: liteProp,
+    projection = "table",
     className,
     style,
   },
   handleRef,
 ) {
+  const globe = projection === "globe";
   useCortexMapStyles();
   const T = useMemo<CortexMapTheme>(() => ({ ...DEFAULT_THEME, ...themeProp }), [themeProp]);
   const layout = useMemo<ClusterLayout>(
@@ -372,6 +393,43 @@ export const CortexMap = forwardRef<CortexMapHandle, CortexMapProps>(function Co
       }
     }
 
+    // Globe projection (prototype): re-place the just-computed disc layout onto
+    // a sphere. Each cluster becomes a continent centred on its golden-angle
+    // point; a node's offset from its cluster's disc centroid rides the tangent
+    // plane there, then projects to the surface (+age lift along the normal).
+    // The core sits at the sphere centre — a glowing heart the hubs radiate from.
+    if (use3d && globe) {
+      const R = T.groundRadius;
+      const idx = new Map(layout.names.map((nm, i) => [nm, i]));
+      const nC = layout.names.length;
+      const sum = new Map<string, { x: number; z: number; n: number }>();
+      for (const n of nodes) {
+        const p = relaxed.get(n.id) ?? home.get(n.id) ?? { x: 0, z: 0 };
+        const s = sum.get(n.cluster) ?? { x: 0, z: 0, n: 0 };
+        s.x += p.x; s.z += p.z; s.n += 1; sum.set(n.cluster, s);
+      }
+      const patchScale = R / 320; // disc units → tangent units on the sphere
+      for (const n of nodes) {
+        n.__lift = 0; // radial lift is baked into the position; no y-offset
+        if (n.role === "core") { n.x = n.fx = 0; n.y = n.fy = 0; n.z = n.fz = 0; continue; }
+        const p = relaxed.get(n.id) ?? home.get(n.id) ?? { x: 0, z: 0 };
+        const s = sum.get(n.cluster) ?? { x: 0, z: 0, n: 1 };
+        const lx = (p.x - s.x / s.n) * patchScale;
+        const lz = (p.z - s.z / s.n) * patchScale;
+        const d = fibDir(idx.get(n.cluster) ?? 0, nC);
+        const up = Math.abs(d[1]) < 0.99 ? [0, 1, 0] : [1, 0, 0];
+        const t1 = norm(cross(up, d));
+        const t2 = cross(d, t1); // unit (d, t1 orthonormal)
+        const lift = !n.role || n.role === "leaf" ? ((n.__fresh ?? 0.5) - 0.5) * T.ageLift : 0;
+        const px = d[0] * R + t1[0] * lx + t2[0] * lz;
+        const py = d[1] * R + t1[1] * lx + t2[1] * lz;
+        const pz = d[2] * R + t1[2] * lx + t2[2] * lz;
+        const [ux, uy, uz] = norm([px, py, pz]);
+        const rr = R + lift;
+        n.x = n.fx = ux * rr; n.y = n.fy = uy * rr; n.z = n.fz = uz * rr;
+      }
+    }
+
     const links: GraphLink[] = edgesProp
       .filter((e) => present.has(e.source) && present.has(e.target))
       .map((e) => ({
@@ -384,7 +442,7 @@ export const CortexMap = forwardRef<CortexMapHandle, CortexMapProps>(function Co
     // linkColour/Width split it into the faint + bright tiers at render.
     const renderLinks = links.filter((l) => l.origin === "explicit" || l.strength >= T.linkFibreMin);
     return { nodes, links, renderLinks };
-  }, [nodesProp, edgesProp, use3d, layout, T.sectorRadius, T.ageLift, T.linkFibreMin, domeY]);
+  }, [nodesProp, edgesProp, use3d, layout, T.sectorRadius, T.ageLift, T.linkFibreMin, T.groundRadius, domeY, globe]);
 
   // keep the node-position map current for the ambient loop
   useEffect(() => {
@@ -560,6 +618,23 @@ export const CortexMap = forwardRef<CortexMapHandle, CortexMapProps>(function Co
             if (T.fogDensity > 0) scene.fog = new THREE.FogExp2(new THREE.Color(T.background).getHex(), T.fogDensity);
             const group = new THREE.Group();
 
+            if (globe) {
+              // Globe furniture: the sphere itself + continent labels floated
+              // just off the surface. The disc-only pieces (sea, ground plane,
+              // ground rings, bezel) are meaningless here and dropped.
+              group.add(makeGlobe(THREE, T.groundRadius));
+              group.add(makeGlowSprite(THREE, 300)); // core heart at the centre
+              if (T.clusterLabels) {
+                const nC = layout.names.length;
+                layout.names.forEach((c, i) => {
+                  const d = fibDir(i, nC);
+                  const spr = makeTextSprite(THREE, c.toUpperCase(), clusterColor(c));
+                  const rr = T.groundRadius * 1.08; // float labels off the surface
+                  spr.position.set(d[0] * rr, d[1] * rr, d[2] * rr);
+                  group.add(spr);
+                });
+              }
+            } else {
             if (T.sea) {
               const sea = makeSea(THREE, T.groundRadius * 0.975, T.domeRadius);
               group.add(sea);
@@ -598,6 +673,7 @@ export const CortexMap = forwardRef<CortexMapHandle, CortexMapProps>(function Co
                 group.add(spr);
               }
             }
+            }
 
             const dust = makeDust(THREE, T.groundRadius);
             scene.add(dust);
@@ -625,7 +701,13 @@ export const CortexMap = forwardRef<CortexMapHandle, CortexMapProps>(function Co
       // frame the disc at a low oblique angle, once
       if (!(fg as any).__framed) {
         try {
-          fg.cameraPosition(T.cameraStart, T.cameraLook, 0);
+          // Globe: orbit the sphere from a little above, aimed at its centre;
+          // the table's low oblique "look across" start would bury it.
+          const camStart = globe
+            ? { x: 0, y: T.groundRadius * 0.55, z: T.groundRadius * 2.6 }
+            : T.cameraStart;
+          const camLook = globe ? { x: 0, y: 0, z: 0 } : T.cameraLook;
+          fg.cameraPosition(camStart, camLook, 0);
           setTimeout(() => { try { fg.zoomToFit(800, 130); } catch { /* */ } }, 80);
           (fg as any).__framed = true;
         } catch { /* */ }
@@ -635,7 +717,7 @@ export const CortexMap = forwardRef<CortexMapHandle, CortexMapProps>(function Co
       (fg as any).__framed = true;
     }
     wake(2200); // run through the initial frame + zoom-to-fit
-  }, [GraphComp, data.nodes, use3d, size.w, size.h, wake, T, layout, clusterColor, domeY]);
+  }, [GraphComp, data.nodes, use3d, size.w, size.h, wake, T, layout, clusterColor, domeY, globe]);
 
   // ── ambient motion — drift the dust + roll the sea; nodes stay put ──────────
   // Advances the shared clocks and feeds activity ripples/storms into the sea
@@ -969,12 +1051,14 @@ export const CortexMap = forwardRef<CortexMapHandle, CortexMapProps>(function Co
         const deg = Math.min(n.degree || 0, 40) / 40;
         const rate = (RING_RATE_BASE + deg * RING_RATE_PER_DEG + (isSel ? 3.0 : 0.0)) * persona.ringRate;
         const ring = makeNodeRing(THREE, colour, rr, detail, rate, ringClockRef.current);
-        ring.position.y -= lift; // keep the floor disk on the dome
+        if (!globe) ring.position.y -= lift; // keep the floor disk on the dome
         group.add(ring);
       }
-      if (isCore) {
+      // Pillars fire straight up (+y) — correct on the table, wrong on a globe
+      // (they'd all point one way, not radially). Omitted in the globe prototype.
+      if (!globe && isCore) {
         group.add(makePillar(THREE, PILLAR_CORE_H, 3, colour));
-      } else if (w >= T.pillarMinWeight) {
+      } else if (!globe && w >= T.pillarMinWeight) {
         const t = (w - T.pillarMinWeight) / (1 - T.pillarMinWeight);
         const pillar = makePillar(THREE, PILLAR_BASE_H + Math.pow(t, PILLAR_CURVE) * PILLAR_SCALE, 1.5, colour);
         pillar.position.y -= lift;
@@ -991,7 +1075,7 @@ export const CortexMap = forwardRef<CortexMapHandle, CortexMapProps>(function Co
     );
     group.add(hit);
     return group;
-  }, [use3d, selectedId, ringDegreeMin, clusterColor, clusterPersona, T.pillarMinWeight]);
+  }, [use3d, selectedId, ringDegreeMin, clusterColor, clusterPersona, T.pillarMinWeight, globe]);
 
   // stable accessors — width/particles/curvature bake into geometry
   const linkWidth = useCallback((l: GraphLink) => (isBright(l) ? 0.7 : 0.18), [isBright]);
