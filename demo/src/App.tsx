@@ -6,6 +6,14 @@ import {
 import { CLUSTERS, makeSampleData } from "./sampleData";
 import { Controls } from "./Controls";
 
+// Embed switches, for pages that frame the demo (e.g. adaptprogressevolve.com's
+// Observatory): ?labels=0 drops the cluster-label sprites, which stack into an
+// unreadable pile on a phone; ?embed=1 hides the controls panel and tagline.
+const params = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
+const EMBED = params.get("embed") === "1";
+const NO_LABELS = params.get("labels") === "0";
+const startTheme = (): CortexMapTheme => ({ ...DEFAULT_THEME, ...(NO_LABELS ? { clusterLabels: false } : {}) });
+
 export default function App() {
   const { nodes, edges } = useMemo(() => makeSampleData(), []);
   const mapRef = useRef<CortexMapHandle>(null);
@@ -15,7 +23,7 @@ export default function App() {
   // so dragging a slider stays smooth — React coalesces the rapid updates and
   // only rebuilds the (expensive) scene once the input settles, instead of on
   // every intermediate value.
-  const [theme, setTheme] = useState<CortexMapTheme>(() => ({ ...DEFAULT_THEME }));
+  const [theme, setTheme] = useState<CortexMapTheme>(startTheme);
   const [clusters, setClusters] = useState<ClusterDef[]>(() => CLUSTERS.map((c) => ({ ...c })));
   const [projection, setProjection] = useState<"table" | "globe">("table");
   const deferredTheme = useDeferredValue(theme);
@@ -25,7 +33,7 @@ export default function App() {
   const patchCluster = (name: string, patch: Partial<ClusterDef>) =>
     setClusters((cs) => cs.map((c) => (c.name === name ? { ...c, ...patch } : c)));
   const reset = () => {
-    setTheme({ ...DEFAULT_THEME });
+    setTheme(startTheme());
     setClusters(CLUSTERS.map((c) => ({ ...c })));
   };
 
@@ -58,7 +66,7 @@ export default function App() {
         }}
       >
         <strong style={{ letterSpacing: "0.18em", fontSize: 12 }}>CORTEX-MAP</strong>
-        <span style={{ opacity: 0.6 }}>demo — a fictional game studio's second brain</span>
+        {!EMBED && <span style={{ opacity: 0.6 }}>demo — a fictional game studio's second brain</span>}
         <span style={{ flex: 1 }} />
         <button
           onClick={toggleLive}
@@ -87,7 +95,7 @@ export default function App() {
           projection={projection}
           onNodeSelect={setSelected}
         />
-        <Controls
+        {!EMBED && <Controls
           theme={theme}
           onTheme={patchTheme}
           clusters={clusters}
@@ -96,7 +104,7 @@ export default function App() {
           projection={projection}
           onProjection={setProjection}
           onReset={reset}
-        />
+        />}
       </main>
       {selected && (
         <footer
