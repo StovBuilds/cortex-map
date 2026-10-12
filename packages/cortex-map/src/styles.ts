@@ -40,6 +40,10 @@ const CSS = /* css */ `
   align-items: center;
   gap: 8px;
 }
+.cm-fold { width: 100%; justify-content: space-between; padding: 0; min-height: 24px; }
+.cm-fold-mark { font-size: 14px; letter-spacing: 0; color: var(--cm-text-dim); }
+.cm-panel[data-folded] { padding: 8px 12px; }
+.cm-panel[data-folded] .cm-title { margin-bottom: 0; }
 .cm-row {
   display: flex;
   align-items: center;

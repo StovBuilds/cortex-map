@@ -122,6 +122,7 @@ Sustained activity in one cluster builds a **storm** in the sea at that cluster'
 - **Node inspector**, click an orb: connections ranked by strength, click-through navigation
 - **Proximity picker**, a click in a dense cluster lists every orb packed at that spot
 - **Double-click**, cinematic two-leg camera swoop to the node
+- **Foldable cards**, the Clusters and Map cards fold to their titles (folded by default on screens up to 640px wide)
 - **Lite mode**, flat 2D fallback for low-power devices (auto on small screens, forced by `prefers-reduced-motion`, toggleable)
 
 All optional, `search={false}` / `inspector={false}` and bring your own via `onNodeSelect`.

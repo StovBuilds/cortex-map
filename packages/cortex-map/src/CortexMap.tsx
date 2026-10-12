@@ -231,6 +231,13 @@ export const CortexMap = forwardRef<CortexMapHandle, CortexMapProps>(function Co
   const [selected, setSelectedState] = useState<GraphNode | null>(null);
   const [nearby, setNearby] = useState<GraphNode[]>([]);
   const [searchOpen, setSearchOpen] = useState(false);
+  // The Clusters and Map cards fold to their titles. On a narrow screen they
+  // start folded so they don't sit over the map; a tap on a title opens it.
+  const narrow = useMediaQuery("(max-width: 640px)");
+  const [legendPref, setLegendPref] = useState<boolean | null>(null);
+  const [statsPref, setStatsPref] = useState<boolean | null>(null);
+  const legendOpen = legendPref ?? !narrow;
+  const statsOpen = statsPref ?? !narrow;
 
   const setSelected = useCallback((n: GraphNode | null) => {
     setSelectedState(n);
@@ -1174,9 +1181,11 @@ export const CortexMap = forwardRef<CortexMapHandle, CortexMapProps>(function Co
       <div className="cm-vignette" />
 
       {/* legend */}
-      <div className="cm-panel" style={{ bottom: 12, left: 12, width: 210 }}>
-        <div className="cm-title">Clusters</div>
-        {layout.names.map((c) => (
+      <div className="cm-panel" data-folded={legendOpen ? undefined : ""} style={{ bottom: 12, left: 12, width: legendOpen ? 210 : undefined }}>
+        <button type="button" className="cm-title cm-fold" aria-expanded={legendOpen} onClick={() => setLegendPref(!legendOpen)}>
+          Clusters <span className="cm-fold-mark" aria-hidden="true">{legendOpen ? "–" : "+"}</span>
+        </button>
+        {legendOpen && layout.names.map((c) => (
           <div key={c} className="cm-legend-row">
             <span className="cm-dot" style={{ background: clusterColor(c), boxShadow: `0 0 8px ${clusterColor(c)}` }} />
             <span className="name">{c}</span>
@@ -1186,12 +1195,16 @@ export const CortexMap = forwardRef<CortexMapHandle, CortexMapProps>(function Co
       </div>
 
       {/* stats */}
-      <div className="cm-panel" style={{ top: 12, left: 12, width: 210 }}>
-        <div className="cm-title">Map</div>
-        <div className="cm-row"><span className="k">Nodes</span><span>{data.nodes.length.toLocaleString()}</span></div>
-        <div className="cm-row"><span className="k">Links</span><span>{data.links.length.toLocaleString()}</span></div>
-        <div className="cm-row"><span className="k">Clusters</span><span>{layout.names.length}</span></div>
-        <div className="cm-row"><span className="k">Mode</span><span>{use3d ? "3D" : "2D"}</span></div>
+      <div className="cm-panel" data-folded={statsOpen ? undefined : ""} style={{ top: 12, left: 12, width: statsOpen ? 210 : undefined }}>
+        <button type="button" className="cm-title cm-fold" aria-expanded={statsOpen} onClick={() => setStatsPref(!statsOpen)}>
+          Map <span className="cm-fold-mark" aria-hidden="true">{statsOpen ? "–" : "+"}</span>
+        </button>
+        {statsOpen && <>
+          <div className="cm-row"><span className="k">Nodes</span><span>{data.nodes.length.toLocaleString()}</span></div>
+          <div className="cm-row"><span className="k">Links</span><span>{data.links.length.toLocaleString()}</span></div>
+          <div className="cm-row"><span className="k">Clusters</span><span>{layout.names.length}</span></div>
+          <div className="cm-row"><span className="k">Mode</span><span>{use3d ? "3D" : "2D"}</span></div>
+        </>}
       </div>
 
       {/* hovered-node card */}
