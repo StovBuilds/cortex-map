@@ -1,0 +1,15 @@
+// The lab as a Cloudflare Worker: the built pages plus /relay/<room>
+// (worker/index.js: shared sessions, the phone remote). The relay has no auth
+// of its own, so put it behind Cloudflare Access (or similar) if you deploy it.
+// Deploy: npm run build -w cortex-gesture-lab, then bunx wrangler deploy here.
+{
+  "name": "cortex-gesture-lab",
+  "main": "worker/index.js",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": true,
+  "preview_urls": false,
+  "assets": { "directory": "./dist", "binding": "ASSETS", "not_found_handling": "404-page" },
+  "durable_objects": { "bindings": [{ "name": "ROOMS", "class_name": "Room" }] },
+  // SQLite-backed (works on the free plan); hibernating WebSockets, nothing stored
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Room"] }]
+}

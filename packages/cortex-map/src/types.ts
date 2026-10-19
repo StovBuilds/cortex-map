@@ -161,6 +161,73 @@ export interface CortexMapHandle {
   focus(id: string): void;
   /** Clear the current selection. */
   clearSelection(): void;
+
+  // ── external input (gesture control, gamepads, remotes…) ──────────────────
+  /**
+   * The live three.js camera + controls target, and a way to keep the
+   * render-on-demand loop awake while you move them. null until the 3D scene
+   * is up, and in the 2D / lite fallback.
+   */
+  getView(): CortexMapView | null;
+  /** The node drawn nearest a point (px, relative to the map element), within `radiusPx` (default 28). */
+  nodeAt(x: number, y: number, radiusPx?: number): CortexMapNode | null;
+  /** Show the hover card + neighbourhood highlight for a node, as the mouse would. null clears. */
+  hover(id: string | null): void;
+  /** Select a node in place (no camera flight). null clears the selection. */
+  select(id: string | null): void;
+  /** Fly back to the opening framing. */
+  resetView(): void;
+  /** The selected node's id, or null. */
+  selectedId(): string | null;
+  /** Ids of the nodes linked to a node, either direction. */
+  neighbours(id: string): string[];
+  /** Where a node is drawn (px, relative to the map element), or null before layout. */
+  screenOf(id: string): { x: number; y: number } | null;
+  /** Every node id. */
+  nodeIds(): string[];
+  /** A node's data, or null. */
+  node(id: string): CortexMapNode | null;
+  /**
+   * Light up a set of nodes and fade the rest, like a hover but for many:
+   * "set" lights the links among them, "path" the links along the chain in
+   * order. null clears. Wins over hover until cleared (resetView clears it too).
+   */
+  spotlight(ids: string[] | null, mode?: "set" | "path"): void;
+  /** Spread one cluster's nodes apart from its middle (1 = home, up to 5). resetView puts them back. */
+  spreadCluster(cluster: string, factor: number): void;
+  /** How far a cluster is spread now (1 = home). */
+  spreadOf(cluster: string): number;
+  /** The span of the nodes' lastSeenAt (ms epoch), or null when fewer than two are dated. */
+  timeSpan(): { min: number; max: number } | null;
+  /** The history cursor (ms epoch), or null for now. */
+  time(): number | null;
+  /**
+   * Show the map as it stood at a time: nodes last seen after it are ghosted,
+   * the ones seen just before it glow. null = now. resetView clears it.
+   */
+  setTime(t: number | null): void;
+}
+
+/** A mutable 3-vector (three.js Vector3 satisfies this). */
+export interface Vec3Like {
+  x: number;
+  y: number;
+  z: number;
+  set(x: number, y: number, z: number): unknown;
+}
+
+/** What CortexMapHandle.getView() hands an input adapter. */
+export interface CortexMapView {
+  /** The perspective camera (a three.js PerspectiveCamera). */
+  camera: { position: Vec3Like; up: Vec3Like; fov: number; lookAt(x: number, y: number, z: number): void };
+  /** The point the camera orbits / looks at (the controls' target). Mutate it in place. */
+  target: Vec3Like;
+  /** The map's root element (for size + coordinate maths). */
+  element: HTMLElement;
+  /** Keep rendering for `holdMs` (default 700). Call it on every camera change. */
+  wake(holdMs?: number): void;
+  /** Re-sync the orbit controls after you moved the camera / target. */
+  sync(): void;
 }
 
 export interface CortexMapProps {

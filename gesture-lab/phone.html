@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="color-scheme" content="dark" />
+    <title>Phone remote</title>
+    <link rel="stylesheet" href="/src/lab.css" />
+  </head>
+  <body class="ph-body">
+    <main class="ph" aria-label="Phone remote">
+      <header class="ph-top">
+        <strong>PHONE REMOTE</strong>
+        <span class="ph-status" data-ref="status" aria-live="polite">Connecting…</span>
+      </header>
+      <p class="ph-on" data-ref="on" aria-live="polite">Move a finger on the pad.</p>
+      <div class="ph-pad" data-ref="pad" role="application" aria-label="Trackpad: one finger moves the cursor, tap to select, two fingers drag, pinch and twist"></div>
+      <div class="ph-buttons">
+        <button class="gl-btn" data-act="select">Select</button>
+        <button class="gl-btn" data-act="clear">Clear</button>
+        <button class="gl-btn" data-act="reset">Reset</button>
+      </div>
+      <label class="ph-time"><span>Time <small>(back ←→ now)</small></span><input type="range" min="0" max="1000" value="1000" data-ref="time" aria-label="Scrub through time"></label>
+      <button class="gl-btn ph-tilt" data-act="tilt" aria-pressed="false">Tilt to steer: off</button>
+      <p class="gl-tip">One finger moves the cursor; tap to select. Two fingers: drag to slide, pinch to zoom, twist to turn.</p>
+    </main>
+    <script type="module" src="/src/phone.ts"></script>
+  </body>
+</html>

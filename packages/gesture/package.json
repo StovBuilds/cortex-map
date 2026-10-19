@@ -1,0 +1,23 @@
+{
+  "name": "cortex-gesture",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Webcam hand-gesture control for the browser: MediaPipe hand tracking in, generic pan / zoom / rotate / hover / select / reset events out, with adapters for cortex-map, three.js cameras and plain DOM.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "sideEffects": false,
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "^4.3.1",
+    "@mediapipe/tasks-vision": "1.1.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  }
+}

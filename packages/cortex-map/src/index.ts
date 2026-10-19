@@ -7,6 +7,8 @@ export type {
   CortexMapTheme,
   CortexMapProps,
   CortexMapHandle,
+  CortexMapView,
+  Vec3Like,
   ClusterDef,
   ClusterPersona,
 } from "./types";

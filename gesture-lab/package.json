@@ -1,0 +1,30 @@
+{
+  "name": "cortex-gesture-lab",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "assets": "node scripts/fetch-mediapipe.mjs",
+    "dev": "npm run assets && vite",
+    "build": "npm run assets && vite build",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "cortex-gesture": "*",
+    "cortex-map": "*",
+    "qrcode-generator": "^1.5.2",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "three": "^0.184.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "@types/three": "^0.184.0",
+    "@vitejs/plugin-react": "^4.5.0",
+    "iwer": "^2.6.0",
+    "playwright": "^1.61.0",
+    "typescript": "^5.9.2",
+    "vite": "^6.3.5"
+  }
+}

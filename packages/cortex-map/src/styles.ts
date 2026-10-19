@@ -59,6 +59,17 @@ const CSS = /* css */ `
 .cm-legend-row .name { flex: 1; color: var(--cm-text); opacity: 0.85; }
 .cm-legend-row .count { font-size: 10px; color: var(--cm-text-dim); }
 
+.cm-time {
+  position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 5;
+  display: flex; align-items: center; gap: 10px; white-space: nowrap;
+  border: 1px solid var(--cm-panel-border); background: var(--cm-panel-bg);
+  border-radius: 999px; padding: 5px 14px; font-size: 12px; color: var(--cm-text);
+  backdrop-filter: blur(10px); font-variant-numeric: tabular-nums; pointer-events: none;
+}
+.cm-time-label, .cm-time-count { color: var(--cm-text-dim); font-size: 11px; }
+.cm-time-bar { width: 90px; height: 3px; border-radius: 2px; background: rgba(143, 199, 255, 0.15); overflow: hidden; }
+.cm-time-bar i { display: block; height: 100%; background: rgba(255, 214, 150, 0.85); }
+
 .cm-controls {
   position: absolute; bottom: 12px; right: 12px; z-index: 5;
   display: flex; align-items: center; gap: 8px;
