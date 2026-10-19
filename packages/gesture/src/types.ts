@@ -62,8 +62,6 @@ export type GestureEvent =
    * range. Absolute, not a delta: (0, 0, 0) puts the view back.
    */
   | { type: "view"; x: number; y: number; z: number }
-  /** A spoken command about the content (fly to / connect / spread / pin a name): the adapter resolves the names. */
-  | { type: "command"; command: import("./voiceCommands").VoiceCommand }
   /**
    * The dial: a fist, turned like a knob. dialstart when it starts turning,
    * dial per frame (delta: radians since the last one, + = clockwise on

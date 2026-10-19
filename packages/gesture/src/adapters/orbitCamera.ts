@@ -41,8 +41,6 @@ export interface OrbitAdapterOptions {
   onHover?: (at: Point | null, px: { x: number; y: number } | null) => Target | null | void;
   onSelect?: (at: Point, px: { x: number; y: number }) => void;
   onReset?: () => void;
-  /** A spoken command about the content (see the "command" event). */
-  onCommand?: (c: import("../voiceCommands").VoiceCommand) => void;
   /** A d-pad hop (see the "step" event). Nothing moves unless you handle it. */
   onStep?: (dir: { dx: number; dy: number }) => void;
   /** Flick to glide / spin. false turns it off. */
@@ -204,11 +202,6 @@ export function createOrbitAdapter(o: OrbitAdapterOptions): GestureAdapter {
         return;
       case "hover":
         hovered = o.onHover?.(e.at, e.at && v ? toPx(v, e.at) : null) ?? null;
-        return;
-      case "command":
-        stopGlide();
-        dropEye(v);
-        o.onCommand?.(e.command);
         return;
       case "step":
         stopGlide();

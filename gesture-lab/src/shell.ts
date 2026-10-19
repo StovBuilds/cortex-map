@@ -3,7 +3,7 @@
 // ghost demos, the cheat-sheets, a camera preview, and the feel knobs. The
 // mouse keeps working throughout.
 
-import { DEFAULT_OPTIONS as DEFAULT_RECOGNIZER, GamepadController, measureLight, GestureController, HEAD_DEFAULTS, HeadController, PAD_DEFAULTS, VOICE_PRESETS, VoiceController, type GestureAdapter, type Point, type SynthPose, type VoiceProvider } from "cortex-gesture";
+import { DEFAULT_OPTIONS as DEFAULT_RECOGNIZER, GamepadController, measureLight, GestureController, HEAD_DEFAULTS, HeadController, PAD_DEFAULTS, type GestureAdapter, type Point, type SynthPose } from "cortex-gesture";
 import { mountPoses, POSE_ACTIONS, type PoseAction } from "./poses";
 import { mountRecord } from "./record";
 import { mountShare } from "./share";
@@ -17,8 +17,6 @@ export interface ShellOptions {
   makeAdapter: (s: Settings) => GestureAdapter;
   /** A good spot for the ghost demo to hover + select (surface coords). */
   findTarget?: () => Point | null;
-  /** Names voice commands can use (helps a speech API spell them). */
-  vocabulary?: () => string[];
   /** Pages with map tricks (cortex): where the map-tricks ghost should do them. */
   mapSpots?: () => MapSpots | null;
   page: "cortex" | "board" | "three";
@@ -48,13 +46,6 @@ export function mountShell(o: ShellOptions) {
     tracker: { wasmBase: `${base}/mediapipe/wasm`, modelUrl: `${base}/mediapipe/face_landmarker.task` },
   });
   const pad = new GamepadController({ surface: o.surface, adapter: proxy });
-  const voiceProvider = (): VoiceProvider => {
-    const p = settings.voiceProvider;
-    if (p === "local") return { kind: "local" };
-    const preset = p === "custom" ? null : VOICE_PRESETS[p];
-    return { kind: "api", key: settings.voiceKey, url: settings.voiceUrl || preset?.url || "", model: settings.voiceModel || preset?.model || "whisper-1" };
-  };
-  const voice = new VoiceController({ adapter: proxy, provider: voiceProvider(), vocabulary: o.vocabulary });
   const applyFeel = () => {
     const r = controller.recognizer.o;
     r.cursorFilter.minCutoff = settings.smoothing;
@@ -68,15 +59,14 @@ export function mountShell(o: ShellOptions) {
     r.pinchFrames = A ? 3 : DEFAULT_RECOGNIZER.pinchFrames;
     controller.dwell.o.ms = A ? 1200 : 0;
     if (controller.overlay) controller.overlay.scale = A ? 1.6 : 1;
-    for (const c of [controller, head, pad, voice]) { c.feedback.announce.enabled = A; c.feedback.announce.o.speak = A && settings.speak; }
+    for (const c of [controller, head, pad]) { c.feedback.announce.enabled = A; c.feedback.announce.o.speak = A && settings.speak; }
     const h = head.recognizer.o;
     h.rate = { yaw: HEAD_DEFAULTS.rate.yaw * settings.headSpeed, pitch: HEAD_DEFAULTS.rate.pitch * settings.headSpeed, zoom: HEAD_DEFAULTS.rate.zoom * settings.headSpeed };
     h.invertYaw = settings.invertYaw;
     h.invertPitch = settings.invertPitch;
     head.dwell.o.ms = settings.dwell ? settings.dwellMs : 0;
     h.mode = settings.headMode;
-    for (const c of [controller, head, pad, voice]) c.feedback.sound.enabled = settings.sound;
-    voice.provider = voiceProvider();
+    for (const c of [controller, head, pad]) c.feedback.sound.enabled = settings.sound;
     const g = pad.recognizer.o;
     g.rate = { pan: PAD_DEFAULTS.rate.pan * settings.padSpeed, yaw: PAD_DEFAULTS.rate.yaw * settings.padSpeed, pitch: PAD_DEFAULTS.rate.pitch * settings.padSpeed, zoom: PAD_DEFAULTS.rate.zoom * settings.padSpeed };
     g.invertY = settings.invertY;
@@ -98,7 +88,6 @@ export function mountShell(o: ShellOptions) {
         <button class="gl-btn gl-toggle" data-act="cam" aria-pressed="false"><b>Hands</b><small>webcam</small></button>
         <button class="gl-btn gl-toggle" data-act="head" aria-pressed="false"><b>Head</b><small>webcam</small></button>
         <button class="gl-btn gl-toggle" data-act="pad" aria-pressed="false"><b>Controller</b><small>gamepad</small></button>
-        <button class="gl-btn gl-toggle" data-act="voice" aria-pressed="false"><b>Voice</b><small data-ref="voice-sub">microphone</small></button>
       </div>
       <div class="gl-row gl-presets" role="radiogroup" aria-label="Panel">
         ${PRESETS.map((p) => `<button class="gl-btn gl-small" role="radio" data-preset="${p.id}" title="${p.hint}">${p.label}</button>`).join("")}
@@ -164,31 +153,6 @@ export function mountShell(o: ShellOptions) {
       </ul>
       <p class="gl-tip">Xbox, PlayStation and most Bluetooth or USB pads work. Plug it in or pair it, then press any button so the browser can see it.</p>
       </details>
-      <details class="gl-sheet" data-sheet="voice"><summary>Voice</summary>
-      <ul class="gl-moves">
-        <li><b>"Fly to …"</b> / "show me …" / "find …": go to a node by name</li>
-        <li><b>"How is … connected to …"</b> / "connect … and …": light the chain</li>
-        <li><b>"Spread …"</b> a cluster (or a node's cluster) apart</li>
-        <li><b>"Pin …"</b> pull a node out as a card</li>
-        <li><b>"Select"</b>, <b>"clear"</b>, <b>"reset"</b>, <b>"stop"</b></li>
-        <li><b>"Zoom in / out"</b>, <b>"turn left / right"</b>, <b>"look up / down"</b></li>
-      </ul>
-      <p class="gl-voice-heard" data-ref="heard" aria-live="polite"></p>
-      <label class="gl-field"><span>Speech to text</span>
-        <select data-k="voiceProvider">
-          <option value="local">On this device: free, private (about 40 MB, once)</option>
-          <option value="openai">OpenAI, with your key</option>
-          <option value="groq">Groq, with your key</option>
-          <option value="custom">Another OpenAI-compatible service</option>
-        </select></label>
-      <div data-ref="voice-api" hidden>
-        <label class="gl-field" data-ref="voice-url"><span>Service URL</span><input data-k="voiceUrl" type="url" placeholder="https://…/v1/audio/transcriptions" autocomplete="off"></label>
-        <label class="gl-field"><span>API key</span><input data-k="voiceKey" type="password" placeholder="sk-…" autocomplete="off" spellcheck="false"></label>
-        <label class="gl-field"><span>Model <small data-ref="voice-model-hint"></small></span><input data-k="voiceModel" type="text" autocomplete="off" spellcheck="false"></label>
-        <p class="gl-tip">Your key stays in this browser and is sent only to that service, with the audio of each command. <button class="gl-btn gl-small" data-act="forget-key">Forget key</button></p>
-      </div>
-      <p class="gl-tip" data-ref="voice-local-tip">On this device: the speech model downloads once; your voice never leaves the browser. It only acts on the phrases above.</p>
-      </details>
       </div>
       <div class="gl-group" data-group="yours"><h3>Make it yours</h3>
       <details class="gl-sheet" data-sheet="poses"></details>
@@ -208,7 +172,7 @@ export function mountShell(o: ShellOptions) {
         <li><b>Says what you're on</b> and what you did, to your screen reader</li>
       </ul>
       <label class="gl-check"><input type="checkbox" data-k="speak"> Read it aloud too (without a screen reader)</label>
-      <p class="gl-tip">Head, controller and voice all work on their own, so any one of them can stand in for hands. Every button here works from the keyboard (Tab, then Enter).</p>
+      <p class="gl-tip">Head and controller both work on their own, so any one of them can stand in for hands. Every button here works from the keyboard (Tab, then Enter).</p>
       </details>
       </div>
       <div class="gl-group" data-group="advanced"><h3>Advanced</h3>
@@ -242,9 +206,6 @@ export function mountShell(o: ShellOptions) {
   const camBtn = $<HTMLButtonElement>("[data-act=cam]");
   const headBtn = $<HTMLButtonElement>("[data-act=head]");
   const padBtn = $<HTMLButtonElement>("[data-act=pad]");
-  const voiceBtn = $<HTMLButtonElement>("[data-act=voice]");
-  const voiceSub = $<HTMLElement>("[data-ref=voice-sub]");
-  const heard = $<HTMLElement>("[data-ref=heard]");
   const camOn = () => controller.running || head.running;
   const sheet = (k: string) => el.querySelector<HTMLDetailsElement>(`[data-sheet=${k}]`)!;
   const mark = (b: HTMLButtonElement, on: boolean) => { b.setAttribute("aria-pressed", String(on)); b.classList.toggle("gl-on", on); };
@@ -253,7 +214,7 @@ export function mountShell(o: ShellOptions) {
     if (preview.srcObject !== src) { preview.srcObject = src; if (src) preview.play().catch(() => {}); }
   };
   const idleText = () => {
-    const on = [controller.running && "hands", head.running && "head", pad.running && "controller", voice.running && "voice"].filter(Boolean);
+    const on = [controller.running && "hands", head.running && "head", pad.running && "controller"].filter(Boolean);
     return on.length ? `On: ${on.join(" + ")}` : "All off. The mouse still works, and any mix can run at once.";
   };
 
@@ -263,13 +224,6 @@ export function mountShell(o: ShellOptions) {
       if (i instanceof HTMLInputElement && i.type === "checkbox") i.checked = !!settings[k];
       else if (document.activeElement !== i) { i.value = String(settings[k]); const out = i.parentElement?.querySelector("output"); if (out) out.textContent = String(settings[k]); }
     });
-    const api = settings.voiceProvider !== "local";
-    $<HTMLElement>("[data-ref=voice-api]").hidden = !api;
-    $<HTMLElement>("[data-ref=voice-local-tip]").hidden = api;
-    $<HTMLElement>("[data-ref=voice-url]").hidden = settings.voiceProvider !== "custom";
-    const preset = settings.voiceProvider === "openai" || settings.voiceProvider === "groq" ? VOICE_PRESETS[settings.voiceProvider] : null;
-    $<HTMLInputElement>("input[data-k=voiceModel]").placeholder = preset?.model ?? "whisper-1";
-    $<HTMLElement>("[data-ref=voice-model-hint]").textContent = preset ? "(blank = default)" : "";
     preview.style.display = settings.preview && camOn() ? "block" : "none";
     for (const m of ["steer", "window"] as const) {
       const b = el.querySelector<HTMLButtonElement>(`[data-act=mode-${m}]`)!;
@@ -285,12 +239,11 @@ export function mountShell(o: ShellOptions) {
     });
   };
   syncKnobs();
-  const TEXT = new Set<keyof Settings>(["voiceProvider", "voiceKey", "voiceUrl", "voiceModel"]);
   el.addEventListener("input", (e) => {
     const i = e.target as HTMLInputElement;
     const k = i.dataset.k as keyof Settings | undefined;
     if (!k) return;
-    (settings as unknown as Record<string, unknown>)[k] = i.type === "checkbox" ? i.checked : TEXT.has(k) ? i.value.trim() : Number(i.value);
+    (settings as unknown as Record<string, unknown>)[k] = i.type === "checkbox" ? i.checked : Number(i.value);
     if (k === "access") settings.preset = settings.access ? "access" : settings.preset === "access" ? "everything" : settings.preset;
     saveSettings(settings);
     applyFeel();
@@ -311,23 +264,6 @@ export function mountShell(o: ShellOptions) {
     if (word && status.dataset.head !== word) { status.dataset.head = word; status.textContent = `Head: ${word}`; }
     if (!word && status.dataset.head) { status.dataset.head = ""; status.textContent = `Head: tracking${head.tracker.fps ? ` · ${Math.round(head.tracker.fps)} fps` : ""}`; }
   });
-  let voiceStatus = "";
-  voice.on((events, st) => {
-    const word = st.status === "loading" ? `loading the speech model${st.progress ? ` ${Math.round(st.progress * 100)}%` : ""}…`
-      : st.status === "hearing" ? "hearing you…" : st.status === "thinking" ? "working it out…"
-      : st.status === "listening" ? "listening" : st.status === "error" ? st.error : "";
-    voiceSub.textContent = st.status === "off" ? "microphone" : st.status === "listening" || st.status === "hearing" ? `${"▮".repeat(1 + Math.round(st.level * 5))}` : st.status;
-    if (word !== voiceStatus && voice.running) { voiceStatus = word; status.textContent = `Voice: ${word}`; }
-    if (st.heard) {
-      const did = st.command ? describe(st.command) : "not a command, ignored";
-      heard.textContent = `Heard “${st.heard}” → ${did}`;
-      if (events.length || !st.command) status.textContent = `Voice: ${did}`;
-    }
-  });
-  const describe = (c: NonNullable<ReturnType<typeof voice.state>["command"]>) =>
-    c.kind === "fly" ? `fly to “${c.name}”` : c.kind === "path" ? `connect “${c.from}” and “${c.to}”` : c.kind === "spread" ? `spread “${c.name}”`
-    : c.kind === "pin" ? `pin “${c.name}”` : c.kind === "zoom" ? `zoom ${c.dir > 0 ? "in" : "out"}` : c.kind === "turn" ? `turn ${c.dir > 0 ? "right" : "left"}`
-    : c.kind === "tilt" ? `look ${c.dir > 0 ? "up" : "down"}` : c.kind;
   let padSeen = "";
   pad.on((events, st) => {
     for (const e of events) {
@@ -367,7 +303,6 @@ export function mountShell(o: ShellOptions) {
     run: (action: PoseAction, at) => {
       if (action === "reset") proxy.handle({ type: "reset" });
       else if (action === "select") proxy.handle({ type: "select", at });
-      else if (action === "voice") voiceBtn.click();
       else if (action === "sound" || action === "flick") {
         const k = action === "sound" ? "sound" : "momentum";
         settings[k] = !settings[k];
@@ -384,11 +319,9 @@ export function mountShell(o: ShellOptions) {
   const guide = mountGuide({ controller, access: () => settings.access, say: (s) => { status.textContent = s; } });
   const cheat = mountCheat({
     panel: el,
-    on: () => ({ hands: controller.running, head: head.running, pad: pad.running, voice: voice.running }),
+    on: () => ({ hands: controller.running, head: head.running, pad: pad.running }),
     custom: () => Object.entries(poses.bindings).filter(([, a]) => a !== "none").map(([n, a]) => [n, POSE_ACTIONS[a]]),
   });
-  let lastHelp: string | null = null;
-  voice.on((_, st) => { if (st.command?.kind === "help" && st.heard !== lastHelp) { lastHelp = st.heard; cheat.open(); } });
 
   // the "why isn't it working" hints: too dark, or nobody in view (and so checking less often)
   const hintEl = $<HTMLElement>("[data-ref=hint]");
@@ -430,17 +363,6 @@ export function mountShell(o: ShellOptions) {
       return;
     }
     if (act === "recenter") { head.recenter(); status.textContent = "Head: hold still a moment…"; return; }
-    if (act === "forget-key") { settings.voiceKey = ""; saveSettings(settings); applyFeel(); syncKnobs(); return; }
-    if (act === "voice") {
-      if (voice.running) { voice.stop(); mark(voiceBtn, false); status.textContent = idleText(); return; }
-      if (settings.voiceProvider !== "local" && !settings.voiceKey) { sheet("voice").open = true; status.textContent = "Voice: add your API key below, or choose On this device."; return; }
-      voiceBtn.disabled = true;
-      sheet("voice").open = true;
-      try { await voice.start(); mark(voiceBtn, true); }
-      catch { mark(voiceBtn, false); }
-      finally { voiceBtn.disabled = false; }
-      return;
-    }
     if (act === "pad") {
       if (pad.running) { pad.stop(); mark(padBtn, false); status.textContent = idleText(); return; }
       pad.start(); mark(padBtn, true); sheet("pad").open = true;
@@ -510,7 +432,7 @@ export function mountShell(o: ShellOptions) {
   });
 
   return {
-    controller, head, pad, voice, settings, adapter: proxy, poses, recording, share, guide, cheat, measureLight,
+    controller, head, pad, settings, adapter: proxy, poses, recording, share, guide, cheat, measureLight,
     /** One hand holding a shape for `ms` (to record or try a custom gesture without a camera). */
     /** A fist turned like a knob, radians (+ = clockwise on screen). */
     playDialGhost: (turn: number, at?: Point) => playGhost(controller, dialGhostScript(turn, at)),

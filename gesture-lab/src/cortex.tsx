@@ -53,7 +53,6 @@ function App() {
       surface,
       findTarget,
       mapSpots,
-      vocabulary: () => { const m = mapRef.current; return m ? m.nodeIds().map((id) => m.node(id)?.label ?? "").filter(Boolean) : []; },
       makeAdapter: (s) => createCortexMapAdapter(() => mapRef.current, {
         panGain: s.panGain, zoomGain: s.zoomGain, momentum: s.momentum ? {} : false,
         // accessibility mode: bigger targets

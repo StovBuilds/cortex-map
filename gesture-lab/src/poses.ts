@@ -6,7 +6,6 @@ import { PoseLibrary, type GestureController, type Point } from "cortex-gesture"
 export const POSE_ACTIONS = {
   select: "click here",
   reset: "reset view",
-  voice: "voice on/off",
   sound: "sounds on/off",
   flick: "flick on/off",
   none: "nothing",

@@ -1,13 +1,11 @@
 // A plain three.js scene (no cortex-map) driven by the orbit-camera adapter.
 import * as THREE from "three";
-import { bestMatch, cameraStats, createOrbitAdapter, pickStep } from "cortex-gesture";
+import { cameraStats, createOrbitAdapter, pickStep } from "cortex-gesture";
 import { mountShell } from "./shell";
-import { mountXR } from "./xr";
 
 const root = document.getElementById("root")!;
 root.innerHTML = `<div class="page-title"><b>THREE.JS</b> · a bare scene: the orbit-camera adapter on its own</div>
-  <div class="three-surface"></div><div class="three-label">Pinch a shape to pick it. <span data-ref="pick"></span></div>
-  <button class="gl-btn xr-btn" data-ref="xr" hidden>Enter VR</button>`;
+  <div class="three-surface"></div><div class="three-label">Pinch a shape to pick it. <span data-ref="pick"></span></div>`;
 const surface = root.querySelector<HTMLElement>(".three-surface")!;
 const pickLabel = root.querySelector<HTMLElement>("[data-ref=pick]")!;
 
@@ -27,7 +25,6 @@ scene.add(new THREE.HemisphereLight("#9cc8ff", "#10131c", 1.2));
 const sun = new THREE.DirectionalLight("#ffffff", 1.6);
 sun.position.set(200, 400, 150);
 scene.add(sun);
-// everything that becomes the table top in VR
 const world = new THREE.Group();
 scene.add(world);
 const grid = new THREE.GridHelper(1200, 40, "#2a4a6a", "#13243a");
@@ -75,18 +72,9 @@ const frame = () => {
     if (camera.position.distanceTo(HOME.pos) < 0.5) resetting = 0;
   }
 };
-// the render loop lives in mountXR (WebXR needs renderer.setAnimationLoop)
-const xrBtn = root.querySelector<HTMLButtonElement>("[data-ref=xr]")!;
-const xr = mountXR({
-  renderer, scene, camera, world, shapes, frame,
-  onPick: (m) => { picked = m; pickLabel.innerHTML = m ? `Picked <b>${m.name}</b>.` : ""; refreshGlow(); },
-  onHover: (m) => { hovered = m; refreshGlow(); },
-}).then((x) => {
-  xrBtn.hidden = !x.supported();
-  xrBtn.addEventListener("click", () => { void (renderer.xr.isPresenting ? x.exit() : x.enter()); });
-  renderer.xr.addEventListener("sessionstart", () => { xrBtn.textContent = "Leave VR"; });
-  renderer.xr.addEventListener("sessionend", () => { xrBtn.textContent = "Enter VR"; });
-  return x;
+renderer.setAnimationLoop(() => {
+  frame();
+  renderer.render(scene, camera);
 });
 
 // pick a shape and swing the view to centre it, keeping the camera's offset
@@ -102,7 +90,6 @@ function centreOn(m: THREE.Mesh) {
 
 const shell = mountShell({
   page: "three",
-  vocabulary: () => shapes.map((m) => m.name),
   surface,
   findTarget: () => {
     const v = shapes[6].position.clone().project(camera);
@@ -114,12 +101,6 @@ const shell = mountShell({
     zoomGain: s.zoomGain,
     momentum: s.momentum ? {} : false,
     onHover: (_at, px) => { hovered = pick(px); refreshGlow(); return hovered ? { id: hovered.uuid, label: hovered.name } : null; },
-    // voice: "fly to cube 7"
-    onCommand: (c) => {
-      if (c.kind !== "fly") return;
-      const m = bestMatch(c.name, shapes, (x) => x.name)?.item;
-      if (m) centreOn(m);
-    },
     // d-pad: hop to the shape that lies most nearly that way on screen
     onStep: (dir) => {
       const r = surface.getBoundingClientRect();
@@ -137,4 +118,4 @@ const shell = mountShell({
     onReset: () => { resetting = 1; picked = null; pickLabel.innerHTML = ""; refreshGlow(); },
   }),
 });
-(window as unknown as Record<string, unknown>).__lab = { shell, camera, target, shapes, world, xr, renderer, cameraStats, picked: () => picked?.name ?? null, hovered: () => hovered?.name ?? null };
+(window as unknown as Record<string, unknown>).__lab = { shell, camera, target, shapes, world, renderer, cameraStats, picked: () => picked?.name ?? null, hovered: () => hovered?.name ?? null };

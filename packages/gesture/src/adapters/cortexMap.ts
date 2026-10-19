@@ -16,7 +16,6 @@ import { createOrbitAdapter, type OrbitAdapterOptions, type OrbitView } from "./
 import type { GestureAdapter, GestureEvent, Point } from "../types";
 import { Pinboard, type LiftedCard } from "../pinboard";
 import { pointInPolygon, shortestPath } from "../geometry";
-import { bestMatch } from "../voiceCommands";
 
 export interface CortexMapLike {
   getView(): OrbitView | null;
@@ -183,41 +182,6 @@ export function createCortexMapAdapter(getMap: () => CortexMapLike | null, o: Co
           const chain = shortestPath(a.id, b.id, (id) => map.neighbours!(id));
           light(chain ?? [a.id, b.id], chain ? "path" : "set");
           if (chain) map.select(b.id);
-          return;
-        }
-        case "command": {
-          if (!map?.nodeIds || !map.node) return;
-          const c = e.command;
-          const all = map.nodeIds().map((id) => map.node!(id)).filter((n): n is NonNullable<typeof n> => !!n);
-          const find = (name: string) => bestMatch(name, all, (n) => n.label ?? n.id)?.item ?? null;
-          if (c.kind === "fly") { const n = find(c.name); if (n) { map.focus(n.id); o.onSelect?.(n.id); } return; }
-          if (c.kind === "path") {
-            const a = find(c.from), b = find(c.to);
-            if (!a || !b || !map.neighbours) return;
-            const chain = shortestPath(a.id, b.id, (id) => map.neighbours!(id));
-            light(chain ?? [a.id, b.id], chain ? "path" : "set");
-            if (chain) map.select(b.id);
-            return;
-          }
-          if (c.kind === "spread") {
-            // a cluster by name, or the cluster of the node named
-            const clusters = [...new Set(all.map((n) => n.cluster).filter((x): x is string => !!x))];
-            const cl = bestMatch(c.name, clusters, (x) => x)?.item ?? find(c.name)?.cluster;
-            if (cl && map.spreadCluster) map.spreadCluster(cl, Math.max(2.2, (map.spreadOf?.(cl) ?? 1) * 1.6));
-            return;
-          }
-          if (c.kind === "pin") {
-            const n = find(c.name);
-            const r = el()?.getBoundingClientRect();
-            const p = n && map.screenOf?.(n.id);
-            if (!n || !r || o.pinboard === false) return;
-            board ??= new Pinboard();
-            const card = board.lift({ title: n.label ?? n.id, subtitle: n.cluster, body: n.summary ?? undefined }, r.left + (p?.x ?? r.width / 2), r.top + (p?.y ?? r.height / 2));
-            // float it up and away from the node, then pin it
-            card.move(r.left + (p?.x ?? r.width / 2) + 160, r.top + (p?.y ?? r.height / 2) - 120);
-            card.drop();
-            return;
-          }
           return;
         }
         case "select": {
