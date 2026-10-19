@@ -25,18 +25,41 @@ export type VoiceCommand =
 
 const norm = (s: string) => s.toLowerCase().replace(/[’']/g, "").replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
 // filler a speech model adds or people say
-const stripFiller = (s: string) => s.replace(/^(?:(?:ok|okay|hey|um|uh|so|please|can you|could you|now|and|then|right)\s+)+/, "").replace(/\s+(?:please|now|thanks|thank you)$/, "").trim();
-const name = (s: string) => s.replace(/^(?:the|a|an|my)\s+/, "").replace(/\s+(?:node|one|cluster|group)$/, "").trim();
+const stripFiller = (s: string) => s.replace(/^(?:(?:ok|okay|hey|um|uh|so|please|can you|could you|now|and|then|right) )+/, "").replace(/ (?:please|now|thanks|thank you)$/, "").trim();
+const name = (s: string) => s.replace(/^(?:the|a|an|my) /, "").replace(/ (?:node|one|cluster|group)$/, "").trim();
+
+const MAX_COMMAND = 120;
+
+// "how is A connected to B", "connect A and B", "path from A to B". Split at the
+// first joining word with plain searches rather than one big lazy regex.
+const PATHS: [RegExp, RegExp][] = [
+  [/^how (?:is|are|does) /, / (?:connected|linked|connect|link) (?:to|with) /],
+  [/^(?:connect|link|join) /, / (?:and|to|with) /],
+  [/^(?:path|route|way) (?:from|between) /, / (?:to|and) /],
+];
+function matchPath(t: string): [string, string] | null {
+  for (const [head, join] of PATHS) {
+    const h = t.match(head);
+    if (!h) continue;
+    const rest = t.slice(h[0].length);
+    const j = rest.match(join);
+    if (!j || j.index === undefined || j.index === 0) continue;
+    const b = rest.slice(j.index + j[0].length);
+    if (b) return [rest.slice(0, j.index), b];
+  }
+  return null;
+}
 
 export function parseCommand(text: string): VoiceCommand | null {
-  const t = stripFiller(norm(text));
+  // a spoken command is a few words; the cap also bounds the regexes below
+  const n0 = norm(text);
+  if (!n0 || n0.length > MAX_COMMAND) return null;
+  const t = stripFiller(n0);
   if (!t) return null;
   let m: RegExpMatchArray | null;
   if (/^(?:help|help me|what can i (?:say|do)|what do i (?:say|do)|(?:show|open)(?: me)? (?:the )?(?:help|moves|gestures|commands|cheat ?sheet|cheat card))$/.test(t)) return { kind: "help" };
-  if ((m = t.match(/^(?:how (?:is|are|does) (.+?) (?:connected|linked|connect|link) (?:to|with) (.+)|(?:connect|link|join) (.+?) (?:and|to|with) (.+)|(?:path|route|way) (?:from|between) (.+?) (?:to|and) (.+))$/))) {
-    const [a, b] = [m[1] ?? m[3] ?? m[5], m[2] ?? m[4] ?? m[6]];
-    return { kind: "path", from: name(a), to: name(b) };
-  }
+  const path = matchPath(t);
+  if (path) return { kind: "path", from: name(path[0]), to: name(path[1]) };
   if ((m = t.match(/^(?:spread|open up|expand|pull apart|explode)(?: out)? (.+)$/))) return { kind: "spread", name: name(m[1]) };
   if ((m = t.match(/^(?:pin|pull out|take out|lift out|card for|grab) (.+)$/))) {
     const n = name(m[1]);
