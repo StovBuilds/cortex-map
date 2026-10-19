@@ -1,6 +1,6 @@
 // The cheat card: every move for what's switched on (hands, head, controller,
-// voice, your own gestures) on one card. Press ?, click the ? in the panel, or
-// say "help". Esc or ? again closes it.
+// your own gestures) on one card. Press ? or click the ? in the panel.
+// Esc or ? again closes it.
 //
 // It reads the moves straight out of the panel's sheets, so there is one list
 // of moves to keep up to date, not two.
@@ -11,7 +11,6 @@ const INPUTS = [
   { key: "hands", label: "Hands" },
   { key: "head", label: "Head" },
   { key: "pad", label: "Controller" },
-  { key: "voice", label: "Voice" },
 ] as const;
 
 export function mountCheat(o: {

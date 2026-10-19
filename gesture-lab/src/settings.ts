@@ -17,11 +17,6 @@ export interface Settings {
   headMode: "steer" | "window";
   dwell: boolean;      // head: look at a node to select it
   dwellMs: number;
-  /** Speech-to-text: on this device, or an OpenAI-compatible API with your own key. */
-  voiceProvider: "local" | "openai" | "groq" | "custom";
-  voiceKey: string;    // stays in this browser; sent only to the chosen provider
-  voiceUrl: string;
-  voiceModel: string;
   /** Accessibility mode: point and hold to select, steadier cursor, bigger targets and cursor, no glide, reads out what it's on. */
   access: boolean;
   /** …and speak it aloud too (not just to a screen reader). */
@@ -33,7 +28,7 @@ export interface Settings {
 export const DEFAULTS: Settings = { smoothing: 1.1, response: 9, pinch: 0.3, panGain: 1, zoomGain: 1.4, preview: true,
   headSpeed: 1, invertYaw: false, invertPitch: false, padSpeed: 1, invertY: false,
   sound: true, momentum: true, headMode: "steer", dwell: true, dwellMs: 1000,
-  voiceProvider: "local", voiceKey: "", voiceUrl: "", voiceModel: "", access: false, speak: false, preset: "everything" };
+  access: false, speak: false, preset: "everything" };
 const KEY = "gesture-lab:settings";
 
 export function loadSettings(): Settings {

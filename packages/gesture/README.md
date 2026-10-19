@@ -82,23 +82,6 @@ Head **window mode** (`head: { mode: "window" }`): instead of steering, moving y
 (not turning it) shifts the view as if the screen were a window into the scene (`view`
 events). Mouth, brows and look-to-select work as in steer mode.
 
-## Voice
-
-`VoiceController` listens for short commands: "fly to …", "how is … connected to …",
-"spread …", "pin …", "select", "clear", "reset", "zoom in / out", "turn left / right",
-"look up / down". Anything else is ignored. Names are fuzzy-matched against the map
-(`bestMatch`), and the adapter turns them into `command` events.
-
-Two ways to turn speech into text, chosen per user:
-
-- **On this device** (default, free): Whisper tiny (English) in a Web Worker via
-  transformers.js, about 40 MB downloaded once. Audio never leaves the browser.
-- **Bring your own key**: any OpenAI-compatible `/audio/transcriptions` endpoint (presets
-  for OpenAI and Groq). The key stays in the browser and goes only to that service.
-
-An adaptive-noise-floor VAD cuts the microphone into utterances, so only speech is
-transcribed. Utterances that arrive while one is being worked out queue (up to two).
-
 ## Custom gestures
 
 `PoseLibrary` learns hand shapes by example: `add(name, landmarks)` for a second or two of
@@ -129,7 +112,7 @@ like a detented knob. Other adapters treat it as a zoom knob.
 - `overlay.scale` for a bigger cursor; a steadier filter, bigger drag deadzone and
   firmer pinch are all `RecognizerOptions`. The lab's "Accessible mode" turns all of this on,
   plus bigger hit targets and no glide.
-- Head, controller and voice each work alone, so any one can stand in for hands.
+- Head and controller each work alone, so any one can stand in for hands.
 
 ## Record and replay
 
@@ -155,13 +138,6 @@ per room, hibernating, storing nothing). Two uses in the lab:
 The relay has no auth of its own: anyone with a room name can join. If you deploy the lab,
 put it behind Cloudflare Access (or similar).
 
-## VR (WebXR)
-
-The three.js page has an "Enter VR" button where the browser supports immersive VR. The
-scene becomes a table top in front of you: point a controller and pull the trigger to pick,
-squeeze a grip and move to carry the world, squeeze both and pull apart / twist to grow and
-turn it. Tested with IWER (Meta's WebXR emulator, `?xr=emulate`), not yet on a headset.
-
 ## Feedback, and running inputs together
 
 - **Target lock**: when the crosshair (head, controller) lands on something, corner brackets
@@ -181,9 +157,6 @@ turn it. Tested with IWER (Meta's WebXR emulator, `?xr=emulate`), not yet on a h
   back to full rate as soon as one shows. `tracker.idle` says which. `pace: false` turns it off.
 - **Too dark?** `measureLight(video)` gives the picture's mean brightness (0 … 1); under ~0.18
   tracking starts to struggle. The lab uses it to say so.
-- **"Help"** is a voice command (`{ kind: "help" }`): the app shows its moves. The lab opens its
-  cheat card.
-
 
 ## The feel (what most demos get wrong)
 
@@ -218,9 +191,7 @@ alongside.
 ## Tests
 
 Unit tests also cover momentum, window mode, drawing (loops vs lines), held grabs, custom
-poses (matching, built-in negatives, handedness, clash, quiet), the dial, voice command
-parsing and fuzzy names, the VAD, and record / replay fidelity. e2e adds the map tricks,
-voice (a Piper-spoken recording as Chromium's fake microphone, through on-device Whisper),
+poses (matching, built-in negatives, handedness, clash, quiet), the dial, and record / replay fidelity. e2e adds the map tricks,
 custom gestures through the panel, the dial, accessible mode, and record / replay.
 
 - `npm test -w cortex-gesture`: the hand recognizer against synthetic landmark sequences

@@ -545,60 +545,6 @@ block("together-phone", async () => {
   });
 });
 
-// VR on the three.js page, through IWER's emulated Quest 3 (no headset here)
-block("three-xr", async () => {
-  const { p, errors } = await page("/three.html?xr=emulate");
-  await p.waitForFunction(async () => (await window.__lab?.xr)?.supported() === true, null, { timeout: 30000 });
-  const btn = p.locator("[data-ref=xr]");
-  check("xr: offers Enter VR when the browser can", await btn.isVisible());
-  await btn.click();
-  await p.waitForFunction(() => window.__lab.renderer.xr.isPresenting, null, { timeout: 15000 });
-  const r = await p.evaluate(async () => {
-    const lab = window.__lab, x = await lab.xr, dev = x.device, R = dev.controllers.right, L = dev.controllers.left;
-    const frames = (n) => new Promise((res) => { let k = 0; const f = () => (++k >= n ? res() : requestAnimationFrame(f)); requestAnimationFrame(f); });
-    const wait = (ms) => new Promise((res) => setTimeout(res, ms));
-    const v = (a) => ({ x: a.x, y: a.y, z: a.z });
-    // aim a controller from `eye` at `t`: rotate -Z onto the direction
-    const aimAt = (c, eye, t) => {
-      c.position.set(eye.x, eye.y, eye.z);
-      let fx = t.x - eye.x, fy = t.y - eye.y, fz = t.z - eye.z; const n = Math.hypot(fx, fy, fz); fx /= n; fy /= n; fz /= n;
-      // quaternion from (0,0,-1) to f
-      const dot = -fz; let qx = 0 * fz - (-1) * fy, qy = (-1) * fx - 0 * fz, qz = 0, qw = 1 + dot;
-      const m = Math.hypot(qx, qy, qz, qw); c.quaternion.set(qx / m, qy / m, qz / m, qw / m);
-    };
-    await frames(10);
-    const out = { scale0: lab.world.scale.x, table: v(lab.world.position) };
-    // point at shape 7 and pull the trigger
-    const s = lab.shapes[6], tp = s.getWorldPosition(s.position.clone());
-    aimAt(R, { x: 0.25, y: 1.3, z: -0.25 }, tp);
-    await frames(6);
-    R.updateButtonValue("trigger", 1); await frames(6); R.updateButtonValue("trigger", 0); await frames(6);
-    out.want = s.name; out.picked = lab.picked();
-    // squeeze and carry the world 30 cm to the right
-    const p0 = v(lab.world.position);
-    R.updateButtonValue("squeeze", 1); await frames(6);
-    for (let i = 1; i <= 10; i++) { R.position.set(0.25 + i * 0.03, 1.3, -0.25); await frames(2); }
-    R.updateButtonValue("squeeze", 0); await frames(6);
-    out.carried = lab.world.position.x - p0.x;
-    // both grips, pull apart: it grows
-    const s0 = lab.world.scale.x;
-    L.position.set(-0.15, 1.3, -0.35); R.position.set(0.15, 1.3, -0.35); await frames(4);
-    L.updateButtonValue("squeeze", 1); R.updateButtonValue("squeeze", 1); await frames(6);
-    for (let i = 1; i <= 10; i++) { L.position.set(-0.15 - i * 0.015, 1.3, -0.35); R.position.set(0.15 + i * 0.015, 1.3, -0.35); await frames(2); }
-    L.updateButtonValue("squeeze", 0); R.updateButtonValue("squeeze", 0); await frames(6);
-    out.grew = lab.world.scale.x / s0;
-    await x.exit(); await wait(300);
-    out.after = { presenting: lab.renderer.xr.isPresenting, scale: lab.world.scale.x, pos: v(lab.world.position) };
-    return out;
-  });
-  check("xr: the scene becomes a table top in front of you", r.scale0 < 0.01 && r.table.y > 0.5 && r.table.z < 0, `scale ${r.scale0}, at ${JSON.stringify(r.table)}`);
-  check("xr: point and pull the trigger picks the shape", r.picked === r.want, `${r.picked} (aimed at ${r.want})`);
-  check("xr: squeeze and move carries the world", r.carried > 0.2, `${(r.carried * 100).toFixed(0)} cm`);
-  check("xr: both grips pulled apart grow it", r.grew > 1.5, `×${r.grew.toFixed(2)}`);
-  check("xr: leaving VR puts the desktop view back", !r.after.presenting && r.after.scale === 1 && r.after.pos.y === 0, JSON.stringify(r.after));
-  check("xr: no page errors", errors.length === 0, errors.join(" | "));
-  await p.close();
-});
 
 block("board-head", async () => {
   const { p, errors } = await page("/dom.html");
@@ -877,44 +823,6 @@ block("three-dial", async () => {
   check("three dial: no page errors", errors.length === 0, errors.join(" | "));
   await p.close();
 });
-
-// ── voice: a recording as the microphone → on-device Whisper → commands ─────
-const VOICE_WAV = new URL("./fixtures/voice-session.wav", import.meta.url).pathname;
-block("voice", async () => {
-  const { existsSync } = await import("node:fs");
-  if (!existsSync(VOICE_WAV)) { console.log("SKIP  voice: no fixture (run e2e/make-voice-fixture.sh)"); return; }
-  const { p, errors } = await page("/");
-  await p.waitForFunction(() => window.__lab?.map()?.getView(), null, { timeout: 30000 });
-  await p.waitForTimeout(5000);
-  await p.click("[data-act=voice]");
-  const r = await p.evaluate(async () => {
-    const lab = window.__lab, map = lab.map(), v = lab.shell.voice;
-    const heard = [];
-    let flewTo = null, spread = 0, resetSeen = false, ready = null;
-    const t0 = performance.now();
-    v.on((ev, st) => {
-      if (!ready && st.status === "listening") ready = Math.round(performance.now() - t0);
-      for (const e of ev) {
-        if (e.type === "command" && e.command.kind === "fly") setTimeout(() => { const id = map.selectedId(); flewTo = id ? map.node(id).label : null; }, 1500);
-        if (e.type === "command" && e.command.kind === "spread") setTimeout(() => { spread = Math.max(...["Tools"].map((c) => map.spreadOf(c))); }, 300);
-        if (e.type === "reset") resetSeen = true;
-      }
-      if (st.heard && heard.at(-1)?.text !== st.heard) heard.push({ text: st.heard, cmd: st.command ? st.command.kind : null });
-    });
-    // the recording loops; one pass is ~54 s, and the model may take a while to load first
-    for (let i = 0; i < 300 && !(resetSeen && heard.length >= 4); i++) await new Promise((r) => setTimeout(r, 1000));
-    await new Promise((r) => setTimeout(r, 2000));
-    return { heard, flewTo, spread, resetSeen, ready, status: v.state().status, error: v.state().error, spreadAfter: map.spreadOf("Tools") };
-  });
-  console.log(`      voice: model ready after ${r.ready} ms; heard: ${r.heard.map((h) => `“${h.text}” → ${h.cmd}`).join("; ")}`);
-  check("voice: listens with the on-device model", r.ready != null && !r.error, r.error || `${r.ready} ms to load`);
-  check("voice: “fly to engine pipeline” flies there", r.flewTo === "Engine pipeline", `${r.flewTo}`);
-  check("voice: chatter is ignored", r.heard.some((h) => /like this map/i.test(h.text) && h.cmd === null));
-  check("voice: “spread the tools cluster” pulls Tools apart", r.spread > 1.5, `×${r.spread}`);
-  check("voice: “reset” resets", r.resetSeen && r.spreadAfter === 1);
-  check("voice: no page errors", errors.length === 0, errors.join(" | "));
-  await p.close();
-}, [...FAKE_MEDIA, `--use-file-for-fake-audio-capture=${VOICE_WAV}`]);
 
 if (process.argv.includes("--list")) { console.log(blocks.map((b) => b.name).join("\n")); process.exit(0); }
 for (const b of blocks) {

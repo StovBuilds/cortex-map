@@ -22,8 +22,6 @@ export { Momentum, MOMENTUM_DEFAULTS, type MomentumOptions, type Motion } from "
 export { groupNote } from "./sound";
 export { Pinboard, type CardContent, type LiftedCard } from "./pinboard";
 export { pointInPolygon, shortestPath } from "./geometry";
-export { parseCommand, bestMatch, nameScore, type VoiceCommand } from "./voiceCommands";
-export { VoiceController, Utterances, encodeWav, to16k, VOICE_PRESETS, LOCAL_MODEL, type VoiceOptions, type VoiceProvider, type VoiceState } from "./voice";
 export { PoseLibrary, POSE_DEFAULTS, BUILTIN, handFeature, type PoseLibraryOptions, type PoseMatch, type PoseSample } from "./poses";
 export { Announcer, ANNOUNCE_DEFAULTS, type AnnouncerOptions } from "./announce";
 export { Recorder, replay, parseRecording, type Recording, type ReplaySinks } from "./recording";
