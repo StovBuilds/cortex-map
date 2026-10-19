@@ -228,7 +228,18 @@ export const CortexMap = forwardRef<CortexMapHandle, CortexMapProps>(function Co
   const wrapRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 0, h: 0 });
   const [hover, setHover] = useState<GraphNode | null>(null);
+  // an outside highlight (a lassoed set, a path between two nodes): wins over hover
+  const [spot, setSpot] = useState<{ nodeIds: Set<string>; linkKeys: Set<string> } | null>(null);
+  // where each node sat before a cluster was spread apart, to put it back
+  const spreadHomeRef = useRef<Map<string, { x: number; y: number; z: number }>>(new Map());
+  // the history dial: show the map as it stood at this time (nodes last seen later are ghosted). null = now.
+  const [timeAt, setTimeAt] = useState<number | null>(null);
+  const timeAtRef = useRef<number | null>(null);
+  timeAtRef.current = timeAt;
   const [selected, setSelectedState] = useState<GraphNode | null>(null);
+  // read by the imperative handle without rebuilding it on every selection
+  const selectedRef = useRef<GraphNode | null>(null);
+  selectedRef.current = selected;
   const [nearby, setNearby] = useState<GraphNode[]>([]);
   const [searchOpen, setSearchOpen] = useState(false);
   // The Clusters and Map cards fold to their titles. On a narrow screen they
@@ -263,6 +274,7 @@ export const CortexMap = forwardRef<CortexMapHandle, CortexMapProps>(function Co
   const igniteTimers = useRef<number[]>([]);
   const flyTimers = useRef<number[]>([]);
   const lastClickRef = useRef<{ id: string; t: number }>({ id: "", t: 0 });
+  const homeRef = useRef<{ pos: { x: number; y: number; z: number }; look: { x: number; y: number; z: number } } | null>(null);
 
   const wake = useCallback((hold = 700) => {
     const fg = fgRef.current;
@@ -514,9 +526,36 @@ export const CortexMap = forwardRef<CortexMapHandle, CortexMapProps>(function Co
   }, [data.links, wake, T.flashMs]);
   useEffect(() => () => igniteTimers.current.forEach((t) => clearTimeout(t)), []);
 
+  // each node's lastSeenAt as ms (dated nodes only), and the span they cover
+  const timeById = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const n of data.nodes) {
+      const v = n.lastSeenAt;
+      const t = typeof v === "number" ? v : Date.parse(v ?? "");
+      if (Number.isFinite(t)) m.set(n.id, t);
+    }
+    return m;
+  }, [data.nodes]);
+  const timeSpan = useMemo(() => {
+    if (timeById.size < 2) return null;
+    let min = Infinity, max = -Infinity;
+    for (const t of timeById.values()) { if (t < min) min = t; if (t > max) max = t; }
+    return max > min ? { min, max } : null;
+  }, [timeById]);
+  /** -1: not there yet at the time cursor; 0..1: how recently it was seen then (1 = just now); null: no cursor or no date. */
+  const timeState = useCallback((id: string): number | null => {
+    if (timeAt == null || !timeSpan) return null;
+    const t = timeById.get(id);
+    if (t == null) return null;
+    if (t > timeAt) return -1;
+    const recent = (timeSpan.max - timeSpan.min) / 25;
+    return Math.max(0, 1 - (timeAt - t) / recent);
+  }, [timeAt, timeSpan, timeById]);
+
   // neighbourhood of the hovered (or selected) node → link/orb highlight
   const focusNode_ = hover ?? selected;
   const neighbourhood = useMemo(() => {
+    if (spot) return spot;
     if (!focusNode_) return null;
     const nodeIds = new Set<string>([focusNode_.id]);
     const linkKeys = new Set<string>();
@@ -528,7 +567,7 @@ export const CortexMap = forwardRef<CortexMapHandle, CortexMapProps>(function Co
       }
     }
     return { nodeIds, linkKeys };
-  }, [focusNode_, data.links]);
+  }, [focusNode_, data.links, spot]);
 
   // connections of the selected node → the inspector pane
   const selectedConnections = useMemo(() => {
@@ -563,19 +602,23 @@ export const CortexMap = forwardRef<CortexMapHandle, CortexMapProps>(function Co
 
   const nodeColour = useCallback((n: GraphNode) => {
     const base = n.role === "core" ? "#ffe6b0" : clusterColor(n.cluster);
+    const ts = n.role === "core" ? null : timeState(n.id);
+    if (ts === -1) return "rgba(90,110,150,0.05)"; // not there yet
     if (neighbourhood && !neighbourhood.nodeIds.has(n.id)) return "rgba(90,110,150,0.12)";
     // recency: vivid cluster hue when fresh, fading toward cold slate as it
     // ages. Keep ≥30% of the cluster colour even when ancient; the core never
     // ages out. Flash heat overrides everything.
     const fresh = n.__fresh ?? 0.5;
     const aged = n.role === "core" ? base : hexLerp(T.agedColor, base, 0.3 + 0.7 * fresh);
-    const k = flashK(n.id);
+    // what was being touched around the time cursor glows warm
+    const k = Math.max(flashK(n.id), ts ? ts * 0.65 : 0);
     return k > 0 ? hexLerp(aged, T.flashColor, k) : aged;
-  }, [neighbourhood, flashK, clusterColor, T.agedColor, T.flashColor]);
+  }, [neighbourhood, flashK, clusterColor, T.agedColor, T.flashColor, timeState]);
 
   const linkColour = useCallback((l: GraphLink) => {
     const s = linkEnd(l.source), t = linkEnd(l.target);
     const hue = l.origin === "explicit" ? "140,180,255" : "130,210,190"; // blue / teal
+    if (timeAt != null && (timeState(s) === -1 || timeState(t) === -1)) return `rgba(${hue},0.015)`;
     // a focused node's own links blaze; everything else recedes — but keep a
     // faint trace of the surrounding web so the structure still reads.
     if (neighbourhood) {
@@ -584,7 +627,7 @@ export const CortexMap = forwardRef<CortexMapHandle, CortexMapProps>(function Co
     }
     const a = isBright(l) ? 0.32 + l.strength * 0.28 : 0.12;
     return `rgba(${hue},${a.toFixed(3)})`;
-  }, [neighbourhood, isBright]);
+  }, [neighbourhood, isBright, timeAt, timeState]);
 
   // ── scene composition (war-table disc) + bloom + oblique camera ─────────────
   useEffect(() => {
@@ -739,6 +782,27 @@ export const CortexMap = forwardRef<CortexMapHandle, CortexMapProps>(function Co
           // Table auto-fits to the node spread; the globe uses its explicit
           // framing (zoomToFit would ignore the world body and zoom past it).
           if (!globe) setTimeout(() => { try { fg.zoomToFit(800, 130); } catch { /* */ } }, 80);
+          // remember the settled opening framing: resetView() returns to it exactly
+          // (once the camera has stopped moving: the fit is a tween, and slow
+          // frames stretch it).
+          homeRef.current = null;
+          let prev: number[] | null = null;
+          const settle = (tries: number) => {
+            try {
+              const c = fg.camera(), t = fg.controls?.()?.target;
+              if (!c || !t) return;
+              const cur = [c.position.x, c.position.y, c.position.z];
+              const still = prev && Math.hypot(cur[0] - prev[0], cur[1] - prev[1], cur[2] - prev[2]) < 0.01;
+              prev = cur;
+              if (still || tries <= 0) {
+                homeRef.current = { pos: { x: cur[0], y: cur[1], z: cur[2] }, look: { x: t.x, y: t.y, z: t.z } };
+                return;
+              }
+              wake(400);
+              setTimeout(() => settle(tries - 1), 250);
+            } catch { /* */ }
+          };
+          setTimeout(() => settle(30), globe ? 60 : 950);
           (fg as any).__framed = true;
         } catch { /* */ }
       }
@@ -1026,9 +1090,156 @@ export const CortexMap = forwardRef<CortexMapHandle, CortexMapProps>(function Co
       focusNode(n);
     },
     clearSelection: () => { setSelected(null); setNearby([]); },
+    getView: () => {
+      const fg = fgRef.current as any;
+      const el = wrapRef.current;
+      if (!use3d || !fg?.camera || !el) return null;
+      const controls = fg.controls?.();
+      if (!controls?.target) return null;
+      return {
+        camera: fg.camera(),
+        target: controls.target,
+        element: el,
+        wake,
+        sync: () => {
+          const cam = fg.camera();
+          cam.lookAt(controls.target.x, controls.target.y, controls.target.z);
+          controls.update?.();
+        },
+      };
+    },
+    nodeAt: (x: number, y: number, radiusPx = 28) => {
+      const fg = fgRef.current as any;
+      if (!fg?.graph2ScreenCoords) return null;
+      let best: GraphNode | null = null;
+      let bestD = radiusPx;
+      // big orbs are easier targets, as they are for the mouse: measure to their edge, roughly
+      const edge = (n: GraphNode) => (n.role === "core" ? 22 : n.role === "hub" ? 14 : n.role === "subhub" ? 6 : 0);
+      for (const n of data.nodes) {
+        if (n.x == null || n.y == null) continue;
+        const s = fg.graph2ScreenCoords(n.x, n.y, n.z ?? 0);
+        const d = Math.hypot(s.x - x, s.y - y) - edge(n);
+        if (d < bestD) { bestD = d; best = n; }
+      }
+      return best ? (best.__src ?? null) : null;
+    },
+    selectedId: () => selectedRef.current?.id ?? null,
+    nodeIds: () => data.nodes.map((n) => n.id),
+    node: (id: string) => data.nodes.find((n) => n.id === id)?.__src ?? null,
+    spotlight: (ids: string[] | null, mode: "set" | "path" = "set") => {
+      if (!ids || !ids.length) { setSpot(null); wake(); return; }
+      const nodeIds = new Set(ids);
+      const linkKeys = new Set<string>();
+      const pairs = new Set<string>();
+      if (mode === "path") for (let i = 1; i < ids.length; i++) { pairs.add(`${ids[i - 1]}|${ids[i]}`); pairs.add(`${ids[i]}|${ids[i - 1]}`); }
+      for (const l of data.links) {
+        const a = linkEnd(l.source), b = linkEnd(l.target);
+        if (mode === "path" ? pairs.has(`${a}|${b}`) : nodeIds.has(a) && nodeIds.has(b)) linkKeys.add(`${a}>${b}`);
+      }
+      setSpot({ nodeIds, linkKeys });
+      wake(1200);
+    },
+    spreadCluster: (cluster: string, factor: number) => {
+      const fg = fgRef.current as any;
+      const home = spreadHomeRef.current;
+      const members = data.nodes.filter((n) => n.cluster === cluster && n.role !== "core" && n.x != null);
+      if (!members.length) return;
+      for (const n of members) if (!home.has(n.id)) home.set(n.id, { x: n.x!, y: n.y ?? 0, z: n.z ?? 0 });
+      const c = members.reduce((a, n) => { const h = home.get(n.id)!; return { x: a.x + h.x, y: a.y + h.y, z: a.z + h.z }; }, { x: 0, y: 0, z: 0 });
+      c.x /= members.length; c.y /= members.length; c.z /= members.length;
+      const k = Math.max(1, Math.min(5, factor));
+      // spread out across the table, and lift a little so it reads as "pulled up"
+      const lift = use3d && !globe ? (k - 1) * 18 : 0;
+      for (const n of members) {
+        const h = home.get(n.id)!;
+        n.x = n.fx = c.x + (h.x - c.x) * k;
+        n.y = n.fy = use3d ? h.y + lift : c.y + (h.y - c.y) * k;
+        if (use3d) n.z = n.fz = c.z + (h.z - c.z) * k;
+        if (k === 1) home.delete(n.id);
+      }
+      fg?.d3ReheatSimulation?.();
+      wake(900);
+    },
+    spreadOf: (cluster: string) => {
+      const home = spreadHomeRef.current;
+      const members = data.nodes.filter((n) => n.cluster === cluster && home.has(n.id));
+      if (members.length < 2) return 1;
+      // ratio of current to home spread, from the first two members
+      const [a, b] = members, ha = home.get(a.id)!, hb = home.get(b.id)!;
+      const d0 = Math.hypot(ha.x - hb.x, ha.z - hb.z) || 1;
+      return Math.hypot((a.x ?? 0) - (b.x ?? 0), (a.z ?? 0) - (b.z ?? 0)) / d0;
+    },
+    timeSpan: () => timeSpan,
+    time: () => timeAtRef.current,
+    setTime: (t: number | null) => {
+      const v = t == null || !timeSpan ? null : Math.max(timeSpan.min, Math.min(timeSpan.max, t));
+      timeAtRef.current = v; // read back before React re-renders
+      setTimeAt(v);
+      wake(600);
+    },
+    neighbours: (id: string) => {
+      const out = new Set<string>();
+      for (const l of data.links) {
+        const s = linkEnd(l.source), t = linkEnd(l.target);
+        if (s === id) out.add(t);
+        else if (t === id) out.add(s);
+      }
+      return [...out];
+    },
+    screenOf: (id: string) => {
+      const fg = fgRef.current as any;
+      const n = data.nodes.find((x) => x.id === id);
+      if (!fg?.graph2ScreenCoords || !n || n.x == null || n.y == null) return null;
+      const s = fg.graph2ScreenCoords(n.x, n.y, n.z ?? 0);
+      return { x: s.x, y: s.y };
+    },
+    hover: (id: string | null) => {
+      const n = id ? data.nodes.find((x) => x.id === id) ?? null : null;
+      setHover((h) => (h?.id === n?.id ? h : n));
+      wake();
+    },
+    select: (id: string | null) => {
+      setNearby([]);
+      const n = id ? data.nodes.find((x) => x.id === id) : null;
+      if (!n) { setSelected(null); wake(); return; }
+      setSelected(n);
+      pulseNode(n);
+    },
+    resetView: () => {
+      const fg = fgRef.current as any;
+      if (!fg) return;
+      setSpot(null);
+      setTimeAt(null);
+      if (spreadHomeRef.current.size) {
+        for (const n of data.nodes) {
+          const h = spreadHomeRef.current.get(n.id);
+          if (!h) continue;
+          n.x = n.fx = h.x; n.y = n.fy = h.y; if (use3d) n.z = n.fz = h.z;
+        }
+        spreadHomeRef.current.clear();
+        fg.d3ReheatSimulation?.();
+      }
+      if (use3d) {
+        const camStart = globe ? { x: 0, y: T.groundRadius * 0.5, z: T.groundRadius * 4.2 } : T.cameraStart;
+        const camLook = globe ? { x: 0, y: 0, z: 0 } : T.cameraLook;
+        const cam = fg.camera?.();
+        cam?.up?.set?.(0, 1, 0);
+        const home = homeRef.current;
+        if (home) {
+          fg.cameraPosition(home.pos, home.look, 1000);
+        } else {
+          fg.cameraPosition(camStart, camLook, 900);
+          if (!globe) window.setTimeout(() => { try { fgRef.current?.zoomToFit(800, 130); } catch { /* */ } }, 950);
+        }
+        wake(2600);
+      } else {
+        fg.zoomToFit?.(600, 60);
+        wake(1200);
+      }
+    },
     // focusNode reads fgRef live; data.nodes is the only real dep.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [flashNodes, igniteFrom, data.nodes, pulseNode, setSelected]);
+  }), [flashNodes, igniteFrom, data.nodes, data.links, pulseNode, setSelected, use3d, globe, T, wake, timeSpan]);
 
   // when a node is SELECTED, fade everything not linked to it
   const dimSetRef = useRef<Set<string> | null>(null);
@@ -1216,6 +1427,15 @@ export const CortexMap = forwardRef<CortexMapHandle, CortexMapProps>(function Co
           {hover.type && <div className="cm-row"><span className="k">Type</span><span>{hover.type}</span></div>}
           <div className="cm-row"><span className="k">Links</span><span>{hover.degree ?? 0}</span></div>
           {hover.summary && <div className="cm-pane-summary">{hover.summary}</div>}
+        </div>
+      )}
+
+      {timeAt != null && timeSpan && (
+        <div className="cm-time" role="status">
+          <span className="cm-time-label">As of</span>{" "}
+          <span className="cm-time-date">{new Date(timeAt).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}</span>
+          <span className="cm-time-bar" aria-hidden="true"><i style={{ width: `${((timeAt - timeSpan.min) / (timeSpan.max - timeSpan.min)) * 100}%` }} /></span>
+          <span className="cm-time-count">{" · "}{data.nodes.filter((n) => !(timeById.get(n.id)! > timeAt)).length} of {data.nodes.length} nodes</span>
         </div>
       )}
 

@@ -137,6 +137,12 @@ We're gauging interest in a **hosted brain backend**: connect your data sources,
 
 **[→ Join the waitlist](https://github.com/StovBuilds/cortex-map/issues/1)** (a 👍 is enough, honestly).
 
+## Hands, head and controller (cortex-gesture)
+
+[`packages/gesture`](packages/gesture) drives the map with your hands, your head or a game controller, alongside the mouse. Pinch to grab the table, two hands to zoom and turn, a fist turned like a knob to scrub through time, look at a node to select it, D-pad to hop along links. Tracking is MediaPipe in the browser, so the video never leaves your device.
+
+It's a prototype. It also drives any three.js camera or a plain web page. Try it locally with `npm run dev -w cortex-gesture-lab`; the [package README](packages/gesture/README.md) has every gesture and the API.
+
 ## Development
 
 ```bash

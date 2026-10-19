@@ -3,11 +3,15 @@
   "private": true,
   "workspaces": [
     "packages/cortex-map",
-    "demo"
+    "packages/gesture",
+    "demo",
+    "gesture-lab"
   ],
   "scripts": {
     "build": "npm run build -w cortex-map && npm run build -w cortex-map-demo",
-    "typecheck": "npm run typecheck -w cortex-map && npm run typecheck -w cortex-map-demo",
-    "dev": "npm run dev -w cortex-map-demo"
+    "typecheck": "npm run typecheck -w cortex-map && npm run typecheck -w cortex-gesture && npm run typecheck -w cortex-map-demo && npm run typecheck -w cortex-gesture-lab",
+    "dev": "npm run dev -w cortex-map-demo",
+    "test": "npm test -w cortex-gesture",
+    "e2e": "npm run build -w cortex-gesture-lab && node gesture-lab/e2e/run.mjs"
   }
 }
