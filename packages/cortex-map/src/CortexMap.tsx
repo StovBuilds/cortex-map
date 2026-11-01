@@ -727,7 +727,7 @@ export const CortexMap = forwardRef<CortexMapHandle, CortexMapProps>(function Co
               group.add(new THREE.LineLoop(geo, new THREE.LineBasicMaterial({ color: 0x2c4a6e, transparent: true, opacity: 0.26 })));
             }
 
-            group.add(makeGlowSprite(THREE, 320)); // sun-core at the origin
+            group.add(makeGlowSprite(THREE, 150)); // sun-core at the origin (kept small: it marks the core, it is not a light show)
 
             if (T.outerDisk) {
               const outerDisk = createOuterDisk(THREE, T.groundRadius, domeY);
@@ -1280,7 +1280,7 @@ export const CortexMap = forwardRef<CortexMapHandle, CortexMapProps>(function Co
     const persona = clusterPersona(n.cluster);
     const lift = n.__lift ?? 0;
     const group = new THREE.Group();
-    const haloBase = isCore ? 40 : n.role === "hub" ? 24 : 6 + (n.weight || 0) * 14 + Math.min(n.degree || 0, 40) * 0.25;
+    const haloBase = isCore ? 24 : n.role === "hub" ? 24 : 6 + (n.weight || 0) * 14 + Math.min(n.degree || 0, 40) * 0.25;
     const halo = isCore ? haloBase : haloBase * persona.halo;
     const glow = makeNodeGlow(THREE, dimmed ? halo * 0.6 : halo, colour);
     if (dimmed) glow.material.opacity *= 0.14;
