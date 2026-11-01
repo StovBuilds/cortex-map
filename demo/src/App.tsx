@@ -12,7 +12,8 @@ import { Controls } from "./Controls";
 const params = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
 const EMBED = params.get("embed") === "1";
 const NO_LABELS = params.get("labels") === "0";
-const startTheme = (): CortexMapTheme => ({ ...DEFAULT_THEME, ...(NO_LABELS ? { clusterLabels: false } : {}) });
+// Quieter bloom than the library default so the glow marks emissive data (links, ignited nodes), not the whole scene.
+const startTheme = (): CortexMapTheme => ({ ...DEFAULT_THEME, bloom: [0.3, 0.4, 0.88], ...(NO_LABELS ? { clusterLabels: false } : {}) });
 
 export default function App() {
   const { nodes, edges } = useMemo(() => makeSampleData(), []);
@@ -76,13 +77,13 @@ export default function App() {
             padding: "4px 14px",
           }}
         >
-          {live ? "■ stop the stream" : "▶ simulate a live brain"}
+          {live ? "Stop the stream" : "Simulate a live brain"}
         </button>
         <a
           href="https://github.com/StovBuilds/cortex-map"
           style={{ color: "#8fc7ff", textDecoration: "none" }}
         >
-          GitHub ↗
+          GitHub
         </a>
       </header>
       <main style={{ flex: 1, minHeight: 0, position: "relative" }}>

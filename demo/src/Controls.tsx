@@ -150,7 +150,8 @@ export interface ControlsProps {
 }
 
 export function Controls({ theme, onTheme, clusters, baseClusters, onCluster, projection, onProjection, onReset }: ControlsProps) {
-  const [open, setOpen] = useState(true);
+  // Open by default on a wide screen; on a phone the 268px panel plus its content would cover the whole map.
+  const [open, setOpen] = useState(() => typeof window === "undefined" || window.innerWidth > 720);
   const [copied, setCopied] = useState(false);
   const bloomOn = theme.bloom !== null;
 
@@ -181,7 +182,7 @@ export function Controls({ theme, onTheme, clusters, baseClusters, onCluster, pr
           padding: "11px 14px", fontSize: 12, letterSpacing: "0.1em",
         }}
       >
-        <span>◆ CUSTOMISE</span>
+        <span>CUSTOMISE</span>
         <span style={{ color: dim }}>{open ? "▾" : "▸"}</span>
       </button>
 
