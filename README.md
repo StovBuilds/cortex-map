@@ -6,7 +6,7 @@ A cinematic, living 3D knowledge-graph for React, the "war-table" memory map. Br
 
 Your data renders as glowing constellations on a holographic table: each cluster owns a sector, important nodes tower as light pillars, strong connections arc across the map as bright particle trails, and an animated sea rolls underneath. Rippling and storming where the "mind" is most active, basically. Click an orb and organic tentacles reach out to everything it's connected to.
 
-**[▶ Live demo](https://cortex-map.pages.dev)**, a fictional game studio's second brain.
+**[▶ Live demo](https://cortex-map.pages.dev)**, a fictional game studio's second brain, with the mouse. **[▶ Drive it with your hands, head or a controller](https://cortex.jstov.uk)**.
 
 | Inspector + connection tentacles | ⌘K search |
 | --- | --- |
@@ -14,8 +14,21 @@ Your data renders as glowing constellations on a holographic table: each cluster
 
 ## Install
 
+cortex-map isn't on npm yet, so install it from this repo:
+
 ```bash
-npm install cortex-map
+git clone https://github.com/StovBuilds/cortex-map
+cd cortex-map
+npm install
+npm run dev -w cortex-gesture-lab   # hands / head / controller demo, open the URL it prints
+```
+
+To use the component in your own React app, build it and install it from the folder:
+
+```bash
+npm run build -w cortex-map
+cd ../your-app
+npm install ../cortex-map/packages/cortex-map
 ```
 
 React 18+ is a peer dependency. `three` and `react-force-graph-3d` come along as dependencies, no other setup needed.
@@ -141,7 +154,7 @@ We're gauging interest in a **hosted brain backend**: connect your data sources,
 
 [`packages/gesture`](packages/gesture) drives the map with your hands, your head or a game controller, alongside the mouse. Pinch to grab the table, two hands to zoom and turn, a fist turned like a knob to scrub through time, look at a node to select it, D-pad to hop along links. Tracking is MediaPipe in the browser, so the video never leaves your device.
 
-**[▶ Try it](https://cortex-gesture.jackastovell.workers.dev)** (needs a webcam, or a game controller). It's a prototype. It also drives any three.js camera or a plain web page. Run it locally with `npm run dev -w cortex-gesture-lab`; the [package README](packages/gesture/README.md) has every gesture and the API.
+**[▶ Try it](https://cortex.jstov.uk)** (needs a webcam, or a game controller: turn each one on with the Hands, Head or Controller button in the panel). It's a prototype. It also drives any three.js camera or a plain web page. Run it locally with `npm run dev -w cortex-gesture-lab`; the [package README](packages/gesture/README.md) has every gesture and the API.
 
 ## Development
 
