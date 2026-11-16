@@ -9,6 +9,8 @@
   "compatibility_date": "2026-10-01",
   "workers_dev": true,
   "preview_urls": false,
+  // the public demo address (jstov.uk zone); workers.dev stays on so older links keep working
+  "routes": [{ "pattern": "cortex.jstov.uk", "custom_domain": true }],
   "assets": { "directory": "./dist", "binding": "ASSETS", "not_found_handling": "404-page" },
   "durable_objects": { "bindings": [{ "name": "ROOMS", "class_name": "Room" }] },
   // SQLite-backed (works on the free plan); hibernating WebSockets, nothing stored
