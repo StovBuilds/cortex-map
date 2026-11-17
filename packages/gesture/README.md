@@ -1,4 +1,7 @@
-# cortex-gesture (prototype)
+# cortex-gesture (experimental)
+
+**[▶ Public demo](https://cortex-gesture.jackastovell.workers.dev)**: the gesture lab, deployed as a
+Cloudflare Worker. The package API is still experimental and may change.
 
 Hands-free and controller input for the browser. Three independent inputs, each
 optional, all feeding the same adapters, so any mix (plus the mouse) can run at once:
