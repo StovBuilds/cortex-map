@@ -1,6 +1,6 @@
 # cortex-gesture (experimental)
 
-**[▶ Public demo](https://cortex-gesture.jackastovell.workers.dev)**: the gesture lab, deployed as a
+**[▶ Public demo](https://cortex.jstov.uk)**: the gesture lab, deployed as a
 Cloudflare Worker. The package API is still experimental and may change.
 
 Hands-free and controller input for the browser. Three independent inputs, each
@@ -176,6 +176,13 @@ put it behind Cloudflare Access (or similar).
 All thresholds are in `RecognizerOptions` (`DEFAULT_OPTIONS`).
 
 ## Use
+
+```bash
+npm install cortex-gesture
+```
+
+MediaPipe (`@mediapipe/tasks-vision`) is installed with it. By default the tracking runtime loads from
+jsDelivr and the models from Google's model storage; pass `tracker: { wasmBase, modelUrl }` to self-host them.
 
 ```ts
 import { GestureController, createCortexMapAdapter } from "cortex-gesture";

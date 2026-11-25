@@ -14,24 +14,43 @@ Your data renders as glowing constellations on a holographic table: each cluster
 
 ## Install
 
-cortex-map isn't on npm yet, so install it from this repo:
-
 ```bash
-git clone https://github.com/StovBuilds/cortex-map
-cd cortex-map
-npm install
-npm run dev -w cortex-gesture-lab   # hands / head / controller demo, open the URL it prints
+npm install cortex-map
 ```
 
-To use the component in your own React app, build it and install it from the folder:
+React 18+ is a peer dependency. `three` and `react-force-graph-3d` come along as dependencies, so there's nothing else to set up.
+
+For hands, head and game-controller input, add [cortex-gesture](packages/gesture/README.md) as well:
 
 ```bash
-npm run build -w cortex-map
-cd ../your-app
-npm install ../cortex-map/packages/cortex-map
+npm install cortex-map cortex-gesture
 ```
 
-React 18+ is a peer dependency. `three` and `react-force-graph-3d` come along as dependencies, no other setup needed.
+```tsx
+import { useEffect, useRef } from "react";
+import { CortexMap, type CortexMapHandle } from "cortex-map";
+import { GestureController, createCortexMapAdapter } from "cortex-gesture";
+
+export function HandsFreeBrain({ nodes, edges, clusters }) {
+  const wrap = useRef<HTMLDivElement>(null);
+  const map = useRef<CortexMapHandle>(null);
+  useEffect(() => {
+    const controller = new GestureController({
+      surface: wrap.current!,
+      adapter: createCortexMapAdapter(() => map.current),
+    });
+    controller.start(); // asks for the camera; the video never leaves the browser
+    return () => controller.dispose();
+  }, []);
+  return (
+    <div ref={wrap} style={{ width: "100vw", height: "100vh" }}>
+      <CortexMap ref={map} nodes={nodes} edges={edges} clusters={clusters} />
+    </div>
+  );
+}
+```
+
+To run the demos locally, clone the repo, `npm install`, then `npm run dev` (the map) or `npm run dev -w cortex-gesture-lab` (hands, head and controller).
 
 ## Quickstart
 

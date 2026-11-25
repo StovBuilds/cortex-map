@@ -8,7 +8,7 @@
     "gesture-lab"
   ],
   "scripts": {
-    "build": "npm run build -w cortex-map && npm run build -w cortex-map-demo",
+    "build": "npm run build -w cortex-map && npm run build -w cortex-gesture && npm run build -w cortex-map-demo",
     "typecheck": "npm run typecheck -w cortex-map && npm run typecheck -w cortex-gesture && npm run typecheck -w cortex-map-demo && npm run typecheck -w cortex-gesture-lab",
     "dev": "npm run dev -w cortex-map-demo",
     "test": "npm test -w cortex-gesture",
