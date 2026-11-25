@@ -1,22 +1,56 @@
 {
   "name": "cortex-gesture",
-  "version": "0.0.1",
-  "private": true,
+  "version": "0.1.0",
   "description": "Webcam hand-gesture control for the browser: MediaPipe hand tracking in, generic pan / zoom / rotate / hover / select / reset events out, with adapters for cortex-map, three.js cameras and plain DOM.",
   "license": "MIT",
+  "author": "Jack Stovell",
+  "homepage": "https://cortex.jstov.uk",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/StovBuilds/cortex-map.git",
+    "directory": "packages/gesture"
+  },
+  "bugs": {
+    "url": "https://github.com/StovBuilds/cortex-map/issues"
+  },
+  "keywords": [
+    "gesture",
+    "hand-tracking",
+    "mediapipe",
+    "webcam",
+    "head-tracking",
+    "gamepad",
+    "three",
+    "cortex-map",
+    "hands-free"
+  ],
   "type": "module",
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "sideEffects": false,
   "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --clean --external @mediapipe/tasks-vision",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "1.1.0"
   },
   "devDependencies": {
     "typescript": "^5.9.2",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.4",
+    "tsup": "^8.5.0"
   }
 }
